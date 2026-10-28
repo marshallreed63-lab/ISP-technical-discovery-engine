@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Architecture rules
+- Discovery content (evidence, hypotheses, questions, services) lives as static data in `src/lib/discovery-data.ts`; `src/lib/discovery.ts` builds plans deterministically from it. Why: plans must be traceable to cited evidence, with no AI or randomness.
