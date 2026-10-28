@@ -1,0 +1,2 @@
+[{"capability":"static app (pages, data, scoring, filters, CSV export, copy)","source":"index.html/app.js/data.js/style.css","outcome":"ported","status":"verified","next_action":"none"},
+{"capability":"database/auth/secrets/integrations","source":"none detected","outcome":"not applicable","status":"verified","next_action":"none"}]
