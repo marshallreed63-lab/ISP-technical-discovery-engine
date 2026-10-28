@@ -46,7 +46,7 @@ describe("discovery plans", () => {
   });
 
   it("CityWest leads with resilience; no plan claims FreeRADIUS is confirmed", () => {
-    expect(buildPlan("citywest", "Network Engineering").challenges[0].id).toBe("cw-ha");
+    expect(buildPlan("citywest", "Network Engineering").challenges[0]?.id).toBe("cw-ha");
     expect(datasetMetrics(ACCOUNTS).verifiedFreeRadius).toBe(0);
   });
 

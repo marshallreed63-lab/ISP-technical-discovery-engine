@@ -29,11 +29,11 @@ export function buildPlan(accountId: string, persona: Persona) {
   const context = ACCOUNT_CONTEXT[accountId];
   const evidence = evidenceFor(accountId).slice().sort((a, b) => dateKey(b).localeCompare(dateKey(a)));
   const challenges = CHALLENGES.filter((c) => c.accountId === accountId)
-    .sort((a, b) => b.strength - a.strength || dateKey(evById(b.evidenceIds[0])).localeCompare(dateKey(evById(a.evidenceIds[0]))))
+    .sort((a, b) => b.strength - a.strength || dateKey(evById(b.evidenceIds[0]!)).localeCompare(dateKey(evById(a.evidenceIds[0]!))))
     .slice(0, 2);
   const bank = QUESTION_BANK[accountId]?.[persona];
   const questions: Question[] = bank
-    ? bank.map((q, i) => ({ ...q, id: `${accountId}-${persona}-${i}`, accountId, persona, depth: DEPTHS[i] }))
+    ? bank.map((q, i) => ({ ...q, id: `${accountId}-${persona}-${i}`, accountId, persona, depth: DEPTHS[i]! }))
     : [];
   const services = challenges.flatMap((c) => c.services.slice(0, 2).map((s) => ({ ...s, service: SERVICES[s.serviceId], challengeId: c.id })));
   const strongest = Math.max(0, ...challenges.map((c) => c.strength));
@@ -42,7 +42,7 @@ export function buildPlan(accountId: string, persona: Persona) {
   return {
     accountId, persona, context, evidence, challenges, questions, services, confidence, unknowns,
     insufficient: services.length === 0,
-    opener: questions.length && context ? buildOpener(context.openerHook, questions[0].text) : "",
+    opener: questions.length && context ? buildOpener(context.openerHook, questions[0]!.text) : "",
   };
 }
 
