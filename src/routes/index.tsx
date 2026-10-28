@@ -25,8 +25,8 @@ export const Route = createFileRoute("/")({
 function Index() {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!ref.current || ref.current.dataset.ready) return;
-    ref.current.dataset.ready = "1";
+    if (!ref.current || ref.current.dataset["ready"]) return;
+    ref.current.dataset["ready"] = "1";
     import("@/lib/isp-app").then((m) => m.initIspApp());
   }, []);
   return <div ref={ref} dangerouslySetInnerHTML={{ __html: ISP_MARKUP }} />;
