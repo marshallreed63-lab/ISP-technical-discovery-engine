@@ -11,3 +11,4 @@
 
 ## Architecture rules
 - Discovery content (evidence, hypotheses, questions, services) lives as static data in `src/lib/discovery-data.ts`; `src/lib/discovery.ts` builds plans deterministically from it. Why: plans must be traceable to cited evidence, with no AI or randomness.
+- Discovery outcomes, next-action rules and handoff briefs live in `src/lib/outcome.ts` as pure functions over in-memory, per-tab state. Why: simulated call inputs must stay separate from verified research and never persist.
