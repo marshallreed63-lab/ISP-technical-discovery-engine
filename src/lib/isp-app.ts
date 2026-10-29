@@ -2,11 +2,13 @@
 // Original imperative app logic; initIspApp runs once the markup is mounted.
 import { SIGNALS, ACCOUNTS } from "./isp-data";
 import { PERSONAS, CONCEPTS, HEROTEL_NOTE, EVIDENCE, DISCOVERY_ANGLE, EVIDENCE_NOTES, STEP_LABELS } from "./discovery-data";
+import { EMPTY_OUTCOME, DEMO_OUTCOME, RADIUS_LABELS, NEED_LABELS, OWNERSHIP_LABELS, ACTIONS, nextAction, outcomeUnknowns, buildHandoff } from "./outcome";
 import { buildPlan, datasetMetrics, evidenceFor, latestEvidence, discoveryPlanCount, snapshotFor } from "./discovery";
 export function initIspApp() {
 
 let weights=Object.fromEntries(Object.entries(SIGNALS).map(([k,v])=>[k,v.weight]));let selected="citywest",role="Network Engineering",filter="",region="all",minimum=0,view="research";
 const openDetails=new Set();
+const outcomes=new Map(),handoffs=new Map();const getO=id=>outcomes.get(id)??{...EMPTY_OUTCOME};
 const esc=s=>String(s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
 const score=a=>Math.round(100*a.signals.reduce((v,k)=>v+weights[k],0)/Math.max(1,Object.values(weights).reduce((x,y)=>x+y,0)));
 const rank=()=>ACCOUNTS.slice().filter(a=>(region==='all'||a.region===region)&&(a.name+' '+a.location).toLowerCase().includes(filter.toLowerCase())&&score(a)>=minimum).sort((a,b)=>score(b)-score(a)||a.name.localeCompare(b.name));
@@ -31,18 +33,45 @@ function renderDetail(){
  const sig=snap.signal;
  detail.innerHTML=`<button class="button ghost small" id="backBtn">← Back to shortlist</button>
  <div class="ws-head"><div><h2 class="detail-title">${esc(a.name)}</h2><p class="detail-loc">${esc(a.location)} · ${esc(a.sector)} · latest evidence ${esc(latest?.date??'—')} · FreeRADIUS deployment: <b>not verified</b></p></div><div class="ws-score"><span class="caption">Research Priority</span><strong>${s}<span> / 100</span></strong><span class="pill ${s>=60?'':s>=40?'mid':'low'}">${tier(s)}</span><span class="caption">Not technical fit or purchase probability</span></div></div>
- <div class="persona"><div class="seg" role="group" aria-label="Technical stakeholder">${Object.keys(PERSONAS).map(r=>`<button data-role="${esc(r)}" aria-pressed="${r===role}" class="${r===role?'on':''}">${esc(r)}</button>`).join('')}</div><p class="caption" id="personaFocus">${esc(PERSONAS[role])}</p></div>
+ <nav class="wf-steps" id="wfSteps" aria-label="Account workflow"></nav>
+  <div class="persona" id="wf-research"><div class="seg" role="group" aria-label="Technical stakeholder">${Object.keys(PERSONAS).map(r=>`<button data-role="${esc(r)}" aria-pressed="${r===role}" class="${r===role?'on':''}">${esc(r)}</button>`).join('')}</div><p class="caption" id="personaFocus">${esc(PERSONAS[role])}</p></div>
  <div class="snap"><div class="snap-cell"><div class="eyebrow">Public signal</div><p>${esc(sig.fact)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(sig.url)}">${esc(sig.sourceTitle)} ↗</a><span class="sub"> · ${esc(sig.date)}</span></div><div class="snap-cell"><div class="eyebrow">Technical hypothesis <span class="lbl hypo">Unverified</span></div><p>${snap.hypothesis?esc(snap.hypothesis):'No AAA-specific hypothesis is supported.'}</p></div><div class="snap-cell"><div class="eyebrow">Discovery objective</div><p>${esc(snap.objective)}</p></div></div>
- <div class="ws-grid"><div class="panel"><div class="eyebrow">Technical discovery · ${esc(role)}</div><ol class="dq-list">${qs}</ol></div>
+ <div class="ws-grid" id="wf-discovery"><div class="panel"><div class="eyebrow">Technical discovery · ${esc(role)}</div><ol class="dq-list">${qs}</ol></div>
  <div class="panel ws-side"><div class="eyebrow">Source-backed evidence</div>${note}${evCards}</div></div>
+ <div id="wfBox"></div>
  <div class="panel">${det('hyp-'+a.id,`Technical opportunities to investigate (${plan.challenges.length})`,hyp)}<div class="divider"></div>${det('unknowns-'+a.id,`<span class="lbl unk">Unknown</span> Still to learn (${plan.unknowns.length})`,`<ul>${plan.unknowns.map(u=>`<li>${esc(u)}</li>`).join('')}</ul>`)}</div>
  <div class="panel"><div class="eyebrow">Potential InkBridge relevance · conditional, only if discovery confirms · confidence: ${esc(plan.confidence)}</div>${svc}<div class="divider"></div>${det('herotel-'+a.id,'Reference case study: published InkBridge engagement (Herotel)',`<p class="caption">${esc(HEROTEL_NOTE.text)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(HEROTEL_NOTE.url)}">Read the case study ↗</a>`)}</div>
  <div class="panel"><div class="eyebrow">Draft opener · simulated prospecting example · requires human review</div><div class="messaging" id="draft">${esc(plan.opener)}</div><p class="caption">Draft for internal review only. Not sent by or on behalf of InkBridge Networks.</p><button class="button" id="copyDraft">▣ Copy opener</button></div>`;
  detail.querySelectorAll('details[data-key]').forEach(d=>d.addEventListener('toggle',()=>{d.open?openDetails.add(d.dataset.key):openDetails.delete(d.dataset.key);}));
- detail.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{role=b.dataset.role;renderDetail();}));
+ detail.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{role=b.dataset.role;handoffs.delete(selected);renderDetail();}));
  detail.querySelectorAll('.evchip').forEach(b=>b.addEventListener('click',()=>{const el=document.getElementById('ev-'+b.dataset.ev);if(!el)return;detail.querySelectorAll('.ev.flash').forEach(x=>x.classList.remove('flash'));el.classList.add('flash');el.scrollIntoView({block:'nearest',behavior:'smooth'});}));
+ renderWorkflow(a,plan);
  document.getElementById('backBtn').addEventListener('click',()=>setView('research'));
  document.getElementById('copyDraft').addEventListener('click',()=>copyText(plan.opener));}
+const opts=(labels,v)=>Object.entries(labels).map(([k,l])=>`<option value="${k}" ${k===v?'selected':''}>${esc(l)}</option>`).join('');
+function renderWorkflow(a,plan){
+ const o=getO(a.id),act=nextAction(o),unk=outcomeUnknowns(o),touched=o.radius!=='unknown'||o.need!=='unknown'||o.ownership!=='unknown'||o.notes||o.openQuestions,brief=handoffs.get(a.id);
+ const steps=[['wf-research','Research',true],['wf-discovery','Discovery',true],['wf-outcome','Outcome',!!touched],['wf-handoff','Handoff',!!brief]];
+ const cur=brief?3:touched?3:2;
+ const hint=brief?'Handoff brief ready — review and copy it.':touched?'Next: generate the handoff brief.':'Next: run discovery, then record what the prospect told you.';
+ document.getElementById('wfSteps').innerHTML=steps.map(([id,l,done],i)=>`<button data-go="${id}" class="${i===cur?'cur':''} ${done?'done':''}" ${i===cur?'aria-current="step"':''}><span>${done?'✓':i+1}</span>${l}</button>`).join('<i>→</i>')+`<p class="caption">${esc(hint)}</p>`;
+ document.querySelectorAll('#wfSteps button').forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.go)?.scrollIntoView({behavior:'smooth',block:'start'})));
+ const box=document.getElementById('wfBox');
+ box.innerHTML=`<div class="panel wf-outcome" id="wf-outcome"><div class="wf-head"><div><div class="eyebrow">Technical discovery outcome · prospect-reported</div><p class="caption">Record what the prospect told you. Kept only in this browser tab; never merged with public evidence above.</p></div><div class="wf-btns"><button class="button small" id="demoBtn">Load demo inputs</button><button class="button ghost small" id="resetBtn">Reset</button></div></div>
+ ${o.demo?'<div class="callout warning"><strong>Demonstration mode:</strong> fictional inputs. Not information about the real '+esc(a.name)+'.</div>':''}
+ <div class="wf-fields"><label class="field">RADIUS deployment<select data-f="radius">${opts(RADIUS_LABELS,o.radius)}</select></label><label class="field">Identified technical need<select data-f="need">${opts(NEED_LABELS,o.need)}</select></label><label class="field">Infrastructure ownership<select data-f="ownership">${opts(OWNERSHIP_LABELS,o.ownership)}</select></label></div>
+ <label class="field">Stated architecture or operational requirements<textarea data-f="notes" rows="3" placeholder="What the prospect described…">${esc(o.notes)}</textarea></label>
+ <label class="field">Open technical questions for follow-up (one per line)<textarea data-f="openQuestions" rows="2" placeholder="Questions for InkBridge engineering…">${esc(o.openQuestions)}</textarea></label>
+ <div class="wf-action act-${act.key}" id="wfAction"><div class="eyebrow">Suggested next action</div><strong>${act.key}. ${esc(ACTIONS[act.key].title)}</strong><p class="caption">${esc(ACTIONS[act.key].summary)}</p><ul>${act.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>${unk.length?`<p class="caption"><span class="lbl unk">Unknown</span> ${unk.map(esc).join(' · ')}</p>`:''}</div></div>
+ <div class="panel" id="wf-handoff"><div class="eyebrow">Technical handoff brief</div><p class="caption">For a BDR handing off to an account executive or technical specialist.</p><button class="button primary" id="genBrief">Generate Handoff Brief</button>${brief?`<div class="messaging" id="briefText">${esc(brief)}</div><button class="button" id="copyBrief">▣ Copy Brief</button>`:''}</div>`;
+ const save=n=>{outcomes.set(a.id,n);};
+ box.querySelectorAll('select[data-f]').forEach(el=>el.addEventListener('change',()=>{save({...getO(a.id),[el.dataset.f]:el.value});handoffs.delete(a.id);renderWorkflow(a,plan);}));
+ box.querySelectorAll('textarea[data-f]').forEach(el=>el.addEventListener('input',()=>{save({...getO(a.id),[el.dataset.f]:el.value});}));
+ box.querySelector('#demoBtn').addEventListener('click',()=>{save({...DEMO_OUTCOME});handoffs.delete(a.id);renderWorkflow(a,plan);});
+ box.querySelector('#resetBtn').addEventListener('click',()=>{outcomes.delete(a.id);handoffs.delete(a.id);renderWorkflow(a,plan);});
+ box.querySelector('#genBrief').addEventListener('click',()=>{handoffs.set(a.id,buildHandoff(a.name,plan,getO(a.id)));renderWorkflow(a,plan);document.getElementById('wf-handoff').scrollIntoView({behavior:'smooth',block:'start'});});
+ box.querySelector('#copyBrief')?.addEventListener('click',()=>copyText(handoffs.get(a.id)));
+}
 async function copyText(t){try{await navigator.clipboard.writeText(t);notify('Copied to clipboard')}catch(e){const temp=document.createElement('textarea');temp.value=t;document.body.appendChild(temp);temp.select();document.execCommand('copy');temp.remove();notify('Copy attempted; verify clipboard')}}
 function notify(t){let n=document.createElement('div');n.textContent=t;n.style.cssText='position:fixed;right:20px;bottom:20px;background:#60dbc8;color:#0d2129;border-radius:10px;padding:12px 16px;font-weight:800;z-index:999';document.body.appendChild(n);setTimeout(()=>n.remove(),2300)}
 function renderWeights(){let el=document.getElementById('weights');el.innerHTML=Object.entries(SIGNALS).map(([k,v])=>`<div class="slider-line"><label for="w-${k}">${esc(v.label)}</label><input type="range" id="w-${k}" min="0" max="40" step="5" value="${weights[k]}"><output id="o-${k}">${weights[k]}</output></div>`).join('');Object.keys(SIGNALS).forEach(k=>document.getElementById('w-'+k).addEventListener('input',e=>{weights[k]=+e.target.value;document.getElementById('o-'+k).textContent=weights[k];renderTable();renderDetail();}));}
