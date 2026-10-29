@@ -48,3 +48,12 @@ describe("meaningful discovery and synchronized progress", () => {
     expect(workflowProgress({ ...EMPTY_OUTCOME, notes: "   " }, false)).toMatchObject({ discovery: false, outcome: false, handoff: false, current: 2 });
   });
 });
+import { EVIDENCE } from "@/lib/discovery-data";
+describe("Xplore Alberta citation", () => {
+  it("cites the direct reviewed announcement dated 2026-02-03", () => {
+    const e = EVIDENCE.find((x) => x.id === "xp-news");
+    expect(e?.url).toBe("https://www.xplore.ca/about/news/xplore-awarded-federal-and-provincial-funding-to-expand-ultra-fast-fixed-wireless-internet-across-rural-alberta/");
+    expect(e?.date).toBe("2026-02-03");
+    expect(e?.verification).toBe("Source reviewed");
+  });
+});
