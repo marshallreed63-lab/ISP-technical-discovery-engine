@@ -1,6 +1,26 @@
 # ISP Intelligence Engine
 
 An independent, non-affiliated prototype for researching ISP prospects and preparing credible AAA/RADIUS technical discovery tailored to InkBridge Networks' published capabilities. It is not an official InkBridge product and does not contain verified customer opportunities.
+## Live Application
+
+[Launch ISP Intelligence Engine](https://source-to-studio-bridge.lovable.app)
+
+## Project Overview
+
+The ISP Intelligence Engine is a technical sales intelligence prototype built to address a specific challenge in B2B infrastructure sales: moving from public company research to credible technical discovery and actionable qualification.
+
+The application supports a four-stage workflow:
+
+1. **Research:** Prioritize ISP accounts using source-linked public signals.
+2. **Discovery:** Prepare technical questions for network engineers, NOC teams, and technology leadership.
+3. **Qualification:** Record findings and evaluate potential AAA/RADIUS-related needs.
+4. **Handoff:** Generate structured summaries for engineering and commercial follow-up.
+
+**Built with:** React, TypeScript, Lovable, and AI-assisted development.
+
+**Scope:** Five ISP accounts, three buyer personas, and rules-based qualification.
+
+Independent prototype. Not affiliated with InkBridge Networks.
 
 ## Business problem and intended users
 
