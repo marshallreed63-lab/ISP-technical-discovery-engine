@@ -55,6 +55,6 @@ Browser sizes: 1280 × 1800 and 390 × 844. Initial browser assertion failures w
 
 ## Remaining limitations and scope
 
-The Xplore Alberta fixed-wireless newsroom citation still requires verification. Other “Source reviewed” labels retain their existing historical review status; sources were not freshly fetched in this pass. No researched account's FreeRADIUS deployment is verified. Human review remains necessary before outreach or engineering recommendations.
+Update (29 Oct 2026): the Xplore Alberta citation now points to the direct February 3, 2026 announcement and is marked Source reviewed; it confirms announced funding and planned expansion only. Other “Source reviewed” labels retain their existing historical review status; sources were not freshly fetched in this pass. No researched account's FreeRADIUS deployment is verified. Human review remains necessary before outreach or engineering recommendations.
 
 No backend, AI API, CRM integration, accounts, charts or redesign were added. Research, scoring, citations and discovery question text were preserved. Work stopped for final review; nothing was published or connected to GitHub.
