@@ -45,7 +45,7 @@ export const ACTIONS: Record<ActionKey, { title: string; summary: string }> = {
  * 4. Otherwise → A. Confirming FreeRADIUS alone never qualifies.
  */
 export function nextAction(o: Outcome): { key: ActionKey; reasons: string[] } {
-  if (o.radius === "none") return { key: "C", reasons: ["Prospect reported no relevant RADIUS use case, so no InkBridge service is suggested."] };
+  if (o.radius === "none") return { key: "C", reasons: ["Prospect reported no relevant RADIUS use case, so no AAA/RADIUS opportunity is demonstrated and no RADIUS-related InkBridge service is suggested. This does not assess other InkBridge offerings."] };
   if (o.need === "none") return { key: "C", reasons: ["Prospect reported no relevant technical need."] };
   if (o.need === "identified") {
     const r = ["A technical need was reported but is not yet validated by engineering."];
@@ -97,7 +97,7 @@ export function buildHandoff(accountName: string, plan: ReturnType<typeof buildP
   L.push("");
   L.push("5. CONDITIONAL INKBRIDGE RELEVANCE");
   if (showServices) for (const s of plan.services) L.push(`- ${s.service?.name ?? s.serviceId} — only if: ${s.confirm.join("; ")}`);
-  else L.push("- None suggested. Current information does not support a specific InkBridge recommendation.");
+  else L.push("- No RADIUS/AAA-related service suggested. Current information does not support a specific recommendation; other InkBridge offerings were not assessed.");
   L.push("");
   L.push(`6. SUGGESTED NEXT ACTION: ${act.key}. ${ACTIONS[act.key].title}`);
   for (const r of act.reasons) L.push(`- ${r}`);
