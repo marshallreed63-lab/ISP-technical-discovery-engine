@@ -103,7 +103,7 @@ describe("discovery outcome workflow", () => {
     const o = { ...EMPTY_OUTCOME, radius: "none" as const, need: "identified" as const };
     expect(nextAction(o).key).toBe("C");
     const b = buildHandoff("CityWest", plan, o);
-    for (const s of plan.services) expect(b).not.toContain(s.service.name);
+    for (const s of plan.services) expect(b).not.toContain(s.service!.name);
   });
   it("no relevant need gives no opportunity", () => {
     expect(nextAction({ ...EMPTY_OUTCOME, radius: "freeradius", need: "none" }).key).toBe("C");

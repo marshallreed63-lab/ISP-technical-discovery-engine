@@ -96,7 +96,7 @@ export function buildHandoff(accountName: string, plan: ReturnType<typeof buildP
   for (const u of plan.unknowns.slice(0, 4)) L.push(`- Open from research: ${u}`);
   L.push("");
   L.push("5. CONDITIONAL INKBRIDGE RELEVANCE");
-  if (showServices) for (const s of plan.services) L.push(`- ${s.service.name} — only if: ${s.confirm.join("; ")}`);
+  if (showServices) for (const s of plan.services) L.push(`- ${s.service?.name ?? s.serviceId} — only if: ${s.confirm.join("; ")}`);
   else L.push("- None suggested. Current information does not support a specific InkBridge recommendation.");
   L.push("");
   L.push(`6. SUGGESTED NEXT ACTION: ${act.key}. ${ACTIONS[act.key].title}`);
