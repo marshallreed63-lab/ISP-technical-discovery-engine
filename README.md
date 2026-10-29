@@ -24,7 +24,24 @@ The intended users are business development representatives, partnership and acc
 | **4. Handoff** | Generate a brief from the research and recorded findings. | A copyable technical/commercial summary; when there are no technical findings, the output is labelled a **pre-call research summary**, not a completed handoff. |
 
 The prototype includes **five ISP accounts**, **three stakeholder personas**, and **15 curated discovery plans**. Account research and question sets are static and reviewed; the application applies deterministic rules rather than generating answers with a live AI model.
+## Application Preview
 
+### 1. Account Intelligence
+Research and prioritize ISP accounts using public expansion signals and explainable scoring.
+
+![Account Intelligence](account-shortlist.png)
+
+### 2. Evidence-Based Technical Discovery
+Connect public research signals to technical hypotheses and stakeholder-specific discovery questions.
+
+![Technical Discovery](technical-discovery.png)
+
+### 3. Technical and Commercial Qualification
+Record discovery findings, evaluate technical relevance, and determine appropriate next steps. This example uses fictional demonstration data.
+
+![Qualification Outcome](qualification-outcome.png)
+
+---
 ## Try the demo
 
 1. [Open the application](https://source-to-studio-bridge.lovable.app) and select **Sonic** from the account shortlist.
