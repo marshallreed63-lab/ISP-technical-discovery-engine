@@ -3,9 +3,9 @@ import { useEffect, useRef } from "react";
 import ispCss from "../isp.css?url";
 import { ISP_MARKUP } from "@/lib/isp-markup";
 
-const TITLE = "ISP Intelligence Engine | InkBridge Candidate Prototype";
+const TITLE = "ISP Intelligence Engine | ISP Account Intelligence";
 const DESC =
-  "Independent candidate prototype: public-signal ISP prospect research and technical discovery workflow tailored to InkBridge Networks.";
+  "Independent prototype: public-signal ISP prospect research and technical discovery workflow tailored to InkBridge Networks.";
 
 export const Route = createFileRoute("/")({
   head: () => ({
