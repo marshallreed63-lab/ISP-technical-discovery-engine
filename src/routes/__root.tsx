@@ -79,13 +79,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "ISP Intelligence Engine" },
-      { name: "description", content: "Public-signal ISP prospect research prototype" },
-      { name: "author", content: "Lovable" },
+      { name: "description", content: "Independent ISP research, evidence-linked technical discovery and preliminary qualification workflow for AAA/RADIUS discussions." },
       { property: "og:title", content: "ISP Intelligence Engine" },
-      { property: "og:description", content: "Public-signal ISP prospect research prototype" },
+      { property: "og:description", content: "Independent ISP research, evidence-linked technical discovery and preliminary qualification workflow for AAA/RADIUS discussions." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {

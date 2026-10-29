@@ -1,10 +1,10 @@
 // Discovery outcome → next action → handoff brief. Deterministic, client-side only.
 // Outcome inputs are prospect-reported or simulated; they never alter public evidence.
-import { buildPlan } from "./discovery";
+import { buildPlan, snapshotFor } from "./discovery";
 import { SERVICES } from "./discovery-data";
 
 export type Radius = "unknown" | "freeradius" | "other" | "none";
-export type Need = "unknown" | "identified" | "none";
+export type Need = "unknown" | "identified" | "relevant" | "unrelated" | "none";
 export type Ownership = "unknown" | "internal" | "external";
 export type Support = "unknown" | "none" | "internal" | "vendor";
 export type Urgency = "unknown" | "active" | "none";
@@ -28,7 +28,7 @@ export const RADIUS_LABELS: Record<Radius, string> = {
   unknown: "Not established", freeradius: "FreeRADIUS confirmed", other: "Another implementation", none: "No relevant RADIUS use case",
 };
 export const NEED_LABELS: Record<Need, string> = {
-  unknown: "Not established", identified: "Identified but unvalidated", none: "No relevant need",
+  unknown: "Not established", identified: "Identified but unvalidated — relevance unclear", relevant: "AAA/RADIUS-related need — unvalidated", unrelated: "Need unrelated to AAA/RADIUS", none: "No relevant need",
 };
 export const OWNERSHIP_LABELS: Record<Ownership, string> = {
   unknown: "Unknown", internal: "Internal engineering", external: "External provider",
@@ -48,7 +48,7 @@ export const DECISION_LABELS: Record<Decision, string> = {
 
 /** Fictional inputs for demonstration mode — never facts about the real company. */
 export const DEMO_OUTCOME: Outcome = {
-  radius: "freeradius", need: "identified", ownership: "internal",
+  radius: "freeradius", need: "relevant", ownership: "internal",
   notes: "[SIMULATED] Prospect described a single RADIUS pair serving all subscriber regions and wants failover tested before a new market launch.",
   openQuestions: "[SIMULATED] Is accounting data replicated between sites? What is the acceptable authentication outage window during maintenance?",
   impact: "[SIMULATED] An authentication outage would stop new-market subscribers from connecting.",
@@ -70,19 +70,21 @@ export const ACTIONS: Record<ActionKey, { title: string; summary: string }> = {
  * Rules (first match wins). Commercial fields never change the category.
  * 1. No relevant RADIUS use case → C.
  * 2. No relevant need → C.
- * 3. Need identified → B (FreeRADIUS, another implementation, or not yet established).
+ * 3. Unrelated need → C; explicit AAA/RADIUS-related need → B.
+ *    Deployment may remain unknown; the relevant requirement must be reported.
  * 4. Otherwise → A. Confirming FreeRADIUS alone never qualifies.
  */
 export function nextAction(o: Outcome): { key: ActionKey; reasons: string[] } {
   if (o.radius === "none") return { key: "C", reasons: ["Prospect reported no relevant RADIUS use case, so no AAA/RADIUS opportunity is demonstrated and no RADIUS-related InkBridge service is suggested. This does not assess other InkBridge offerings."] };
   if (o.need === "none") return { key: "C", reasons: ["Prospect reported no relevant technical need."] };
-  if (o.need === "identified") {
-    const r = ["A technical need was reported but is not yet validated by engineering."];
+  if (o.need === "unrelated") return { key: "C", reasons: ["Reported technical need is unrelated to AAA/RADIUS; no relevant InkBridge requirement established."] };
+  if (o.need === "relevant") {
+    const r = ["An explicitly AAA/RADIUS-related need was reported but is not yet validated by engineering."];
     r.push(o.radius === "unknown" ? "RADIUS deployment is still not established — confirm in the specialist call." : `RADIUS deployment reported as: ${RADIUS_LABELS[o.radius]}.`);
     if (o.ownership === "unknown") r.push("Infrastructure ownership is still unknown.");
     return { key: "B", reasons: r };
   }
-  const r = ["No technical need has been established yet."];
+  const r = [o.need === "identified" ? "A need was reported, but its relevance to AAA/RADIUS and InkBridge is unclear." : "No technical need has been established yet."];
   if (o.radius === "freeradius") r.push("FreeRADIUS being in use does not by itself indicate a need for InkBridge support.");
   return { key: "A", reasons: r };
 }
@@ -92,6 +94,7 @@ export function outcomeUnknowns(o: Outcome): string[] {
   const u: string[] = [];
   if (o.radius === "unknown") u.push("RADIUS deployment");
   if (o.need === "unknown") u.push("Technical need");
+  if (o.need === "identified") u.push("AAA/RADIUS relevance of the reported need");
   if (o.ownership === "unknown") u.push("Infrastructure ownership");
   return u;
 }
@@ -113,10 +116,10 @@ export function missingCommercial(o: Outcome): string[] {
 export function opportunityFraming(o: Outcome): { primary: string | null; secondary: string } {
   const act = nextAction(o).key;
   if (act === "C") return { primary: null, secondary: "No RADIUS-related opportunity demonstrated; other InkBridge offerings not assessed." };
-  if (o.radius === "freeradius" && o.need === "identified")
-    return { primary: `${SERVICES["support"]!.name} for the reported existing deployment (conditional on engineering validation).`, secondary: "Professional services or products remain secondary and conditional on a described initiative." };
+  if (o.radius === "freeradius" && o.need === "relevant")
+    return { primary: `${SERVICES["support"]?.name ?? "Commercial FreeRADIUS support"} for the reported existing deployment (conditional on engineering validation).`, secondary: "Professional services or products remain secondary and conditional on a described initiative." };
   if (o.radius === "freeradius") return { primary: null, secondary: "FreeRADIUS reported, but no support need established — support is not yet a demonstrated opportunity." };
-  if (o.radius === "other" && o.need === "identified") return { primary: null, secondary: "Not a FreeRADIUS support case. Professional services or products may be relevant only if engineering validates the reported need." };
+  if (o.radius === "other" && o.need === "relevant") return { primary: null, secondary: "Not a FreeRADIUS support case. Professional services or products may be relevant only if engineering validates the reported need." };
   return { primary: null, secondary: "Opportunity type not established until the RADIUS deployment and a need are confirmed." };
 }
 
@@ -131,7 +134,7 @@ export function explainAction(o: Outcome) {
   if (o.budget !== "unknown") established.push(`Budget: ${BUDGET_LABELS[o.budget]}`);
   if (o.decision !== "unknown") established.push("Decision process described");
   const unverified = [...outcomeUnknowns(o)];
-  if (o.need === "identified") unverified.push("Reported need not yet validated by engineering");
+  if (o.need === "relevant" || o.need === "identified") unverified.push("Reported need not yet validated by engineering");
   const missing = act === "C" ? [] : missingCommercial(o);
   let next: string, specialist: string;
   if (act === "C") {
@@ -141,10 +144,10 @@ export function explainAction(o: Outcome) {
     next = missing.length ? `Arrange engineering validation and, in parallel, establish: ${missing.slice(0, 3).join(", ")}.` : "Arrange engineering validation with the stakeholders named.";
     specialist = missing.length
       ? "Justified for technical validation only. Commercial qualification is incomplete, so this is not a qualified opportunity."
-      : "Justified. Technical need reported and commercial details described by the prospect — still unvalidated.";
+      : "Justified for exploratory technical validation only. Reported commercial details remain unverified; this is not a fully qualified commercial opportunity.";
   } else {
-    next = "Continue discovery to establish whether a technical need exists before involving engineering.";
-    specialist = "Not yet justified — no technical need established.";
+    next = "Continue discovery to establish an explicitly AAA/RADIUS-related need before involving engineering.";
+    specialist = "Not yet justified — no explicitly AAA/RADIUS-related need established.";
   }
   return { established, unverified, missing, next, specialist };
 }
@@ -155,18 +158,20 @@ export function buildHandoff(accountName: string, plan: ReturnType<typeof buildP
   const fr = opportunityFraming(o);
   const tag = o.demo ? "SIMULATED (demonstration input — not a fact about this company)" : "PROSPECT-REPORTED (unverified)";
   const src = o.demo ? "simulated" : "prospect-reported";
-  const showServices = act.key !== "C" && !plan.insufficient;
+  const showServices = act.key === "B" && !plan.insufficient;
+  const findings = hasDiscoveryFindings(o);
   const t = (s: string) => s.trim() || "Not established";
   const L: string[] = [];
-  L.push(`TECHNICAL HANDOFF BRIEF — ${accountName}`);
+  L.push(`${findings ? "PRELIMINARY DISCOVERY HANDOFF" : "PRE-CALL RESEARCH SUMMARY"} — ${accountName}`);
+  if (!findings) L.push("No discovery findings recorded — research preparation only; handoff not complete.");
   L.push(`Stakeholder: ${plan.persona}`);
   L.push(`Independent prototype · draft for internal review · discovery findings: ${tag}`);
   L.push("");
   L.push("=== 1. TECHNICAL ENVIRONMENT ===");
-  L.push("VERIFIED PUBLIC EVIDENCE (pre-call)");
-  for (const e of plan.evidence) L.push(`- ${e.date}: ${e.fact} [${e.sourceTitle} — ${e.url}]`);
+  L.push("PUBLIC RESEARCH EVIDENCE (pre-call; verification status per source)");
+  for (const e of plan.evidence) L.push(`- [${e.verification === "Source reviewed" ? "Source reviewed" : "Source requires verification"}] ${e.date}: ${e.fact} [${e.sourceTitle} — ${e.url}] Limitation: ${e.limitation}`);
   L.push("ORIGINAL TECHNICAL HYPOTHESIS (unverified)");
-  L.push(plan.challenges[0] ? `- ${plan.challenges[0].hypothesis}` : "- No AAA-specific hypothesis is supported by public evidence.");
+  L.push(snapshotFor(plan).hypothesis ?? "- No AAA-specific hypothesis is supported by public evidence.");
   L.push(`DISCOVERY FINDINGS — ${tag}`);
   L.push(`- RADIUS deployment: ${RADIUS_LABELS[o.radius]}`);
   L.push(`- Technical need: ${NEED_LABELS[o.need]}`);
@@ -204,4 +209,20 @@ export function buildHandoff(accountName: string, plan: ReturnType<typeof buildP
   else if (act.key === "C") L.push("- None — no technical engagement recommended at this stage.");
   else L.push("- No open questions recorded yet.");
   return L.join("\n");
+}
+
+/** Open questions and commercial-only entries are not actual technical findings. */
+export function hasDiscoveryFindings(o: Outcome): boolean {
+  return o.radius !== "unknown" || o.need !== "unknown" || o.ownership !== "unknown" || !!o.notes.trim();
+}
+
+export function workflowProgress(o: Outcome, hasBrief: boolean) {
+  const findings = hasDiscoveryFindings(o);
+  const complete = findings && hasBrief;
+  return {
+    discovery: findings, outcome: findings, handoff: complete, current: findings ? 3 : 2,
+    hint: complete ? "Preliminary discovery handoff ready — review and copy; qualification remains unvalidated."
+      : hasBrief ? "Pre-call research summary ready; record discovery findings before completing handoff."
+      : findings ? "Next: generate a preliminary discovery handoff." : "Next: run discovery, then record what the prospect told you.",
+  };
 }

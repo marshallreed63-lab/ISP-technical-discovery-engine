@@ -14,7 +14,8 @@ export function evidenceYear(e: Evidence): number | null {
 }
 
 /** Sort key: full dates > year-only > undated. */
-function dateKey(e: Evidence) {
+function dateKey(e: Evidence | undefined) {
+  if (!e) return "0000";
   if (/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return e.date;
   if (/^\d{4}-\d{2}$/.test(e.date)) return e.date + "-00";
   if (/^\d{4}/.test(e.date)) return e.date.slice(0, 4) + "-00-00";
@@ -29,11 +30,11 @@ export function buildPlan(accountId: string, persona: Persona) {
   const context = ACCOUNT_CONTEXT[accountId];
   const evidence = evidenceFor(accountId).slice().sort((a, b) => dateKey(b).localeCompare(dateKey(a)));
   const challenges = CHALLENGES.filter((c) => c.accountId === accountId)
-    .sort((a, b) => b.strength - a.strength || dateKey(evById(b.evidenceIds[0]!)).localeCompare(dateKey(evById(a.evidenceIds[0]!))))
+    .sort((a, b) => b.strength - a.strength || dateKey(evById(b.evidenceIds[0])).localeCompare(dateKey(evById(a.evidenceIds[0]))))
     .slice(0, 2);
   const bank = QUESTION_BANK[accountId]?.[persona];
   const questions: Question[] = bank
-    ? bank.map((q, i) => ({ ...q, id: `${accountId}-${persona}-${i}`, accountId, persona, depth: DEPTHS[i]! }))
+    ? bank.map((q, i) => ({ ...q, id: `${accountId}-${persona}-${i}`, accountId, persona, depth: DEPTHS[i] ?? "qualification" }))
     : [];
   const services = challenges.flatMap((c) => c.services.slice(0, 2).map((s) => ({ ...s, service: SERVICES[s.serviceId], challengeId: c.id })));
   const strongest = Math.max(0, ...challenges.map((c) => c.strength));
@@ -42,12 +43,12 @@ export function buildPlan(accountId: string, persona: Persona) {
   return {
     accountId, persona, context, evidence, challenges, questions, services, confidence, unknowns,
     insufficient: services.length === 0,
-    opener: questions.length && context ? buildOpener(context.openerHook, questions[0]!.text) : "",
+    opener: questions.length && context ? buildOpener(context.openerHook, questions[0]?.text ?? "") : "",
   };
 }
 
-function evById(id: string) {
-  return EVIDENCE.find((e) => e.id === id)!;
+function evById(id: string | undefined) {
+  return EVIDENCE.find((e) => e.id === id);
 }
 
 export function buildOpener(hook: string, firstQuestion: string) {
@@ -76,9 +77,13 @@ export function discoveryPlanCount(accounts: { id: string }[]) {
 /** Signal → hypothesis → objective, taken only from existing plan data. */
 export function snapshotFor(plan: ReturnType<typeof buildPlan>) {
   const q = plan.questions[0];
+  const challenge = CHALLENGES.find((c) => c.accountId === plan.accountId && c.id === q?.challengeId);
+  const supportingEvidence = plan.evidence.filter((e) => challenge?.evidenceIds.includes(e.id) && e.id !== q?.evidenceId);
   return {
     signal: q ? evById(q.evidenceId) : plan.evidence[0],
-    hypothesis: plan.challenges[0]?.hypothesis ?? null,
+    challenge,
+    supportingEvidence,
+    hypothesis: challenge?.hypothesis ?? null,
     objective: plan.insufficient ? NO_AAA_OBJECTIVE : q?.learn ?? NO_AAA_OBJECTIVE,
   };
 }
