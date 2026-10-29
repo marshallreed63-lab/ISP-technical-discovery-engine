@@ -38,12 +38,14 @@ function renderDetail(){
  <div class="snap"><div class="snap-cell"><div class="eyebrow">Public signal</div><p>${esc(sig.fact)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(sig.url)}">${esc(sig.sourceTitle)} ↗</a><span class="sub"> · ${esc(sig.date)}</span></div><div class="snap-cell"><div class="eyebrow">Technical hypothesis <span class="lbl hypo">Unverified</span></div><p>${snap.hypothesis?esc(snap.hypothesis):'No AAA-specific hypothesis is supported.'}</p></div><div class="snap-cell"><div class="eyebrow">Discovery objective</div><p>${esc(snap.objective)}</p></div></div>
  <div class="ws-grid" id="wf-discovery"><div class="panel"><div class="eyebrow">Technical discovery · ${esc(role)}</div><ol class="dq-list">${qs}</ol></div>
  <div class="panel ws-side"><div class="eyebrow">Source-backed evidence</div>${note}${evCards}</div></div>
+ <div id="wfBox"></div>
  <div class="panel">${det('hyp-'+a.id,`Technical opportunities to investigate (${plan.challenges.length})`,hyp)}<div class="divider"></div>${det('unknowns-'+a.id,`<span class="lbl unk">Unknown</span> Still to learn (${plan.unknowns.length})`,`<ul>${plan.unknowns.map(u=>`<li>${esc(u)}</li>`).join('')}</ul>`)}</div>
  <div class="panel"><div class="eyebrow">Potential InkBridge relevance · conditional, only if discovery confirms · confidence: ${esc(plan.confidence)}</div>${svc}<div class="divider"></div>${det('herotel-'+a.id,'Reference case study: published InkBridge engagement (Herotel)',`<p class="caption">${esc(HEROTEL_NOTE.text)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(HEROTEL_NOTE.url)}">Read the case study ↗</a>`)}</div>
  <div class="panel"><div class="eyebrow">Draft opener · simulated prospecting example · requires human review</div><div class="messaging" id="draft">${esc(plan.opener)}</div><p class="caption">Draft for internal review only. Not sent by or on behalf of InkBridge Networks.</p><button class="button" id="copyDraft">▣ Copy opener</button></div>`;
  detail.querySelectorAll('details[data-key]').forEach(d=>d.addEventListener('toggle',()=>{d.open?openDetails.add(d.dataset.key):openDetails.delete(d.dataset.key);}));
  detail.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{role=b.dataset.role;handoffs.delete(selected);renderDetail();}));
  detail.querySelectorAll('.evchip').forEach(b=>b.addEventListener('click',()=>{const el=document.getElementById('ev-'+b.dataset.ev);if(!el)return;detail.querySelectorAll('.ev.flash').forEach(x=>x.classList.remove('flash'));el.classList.add('flash');el.scrollIntoView({block:'nearest',behavior:'smooth'});}));
+ renderWorkflow(a,plan);
  document.getElementById('backBtn').addEventListener('click',()=>setView('research'));
  document.getElementById('copyDraft').addEventListener('click',()=>copyText(plan.opener));}
 const opts=(labels,v)=>Object.entries(labels).map(([k,l])=>`<option value="${k}" ${k===v?'selected':''}>${esc(l)}</option>`).join('');

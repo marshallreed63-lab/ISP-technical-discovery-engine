@@ -85,3 +85,34 @@ describe("discovery plans", () => {
     expect(PERSONAS["NOC / Infrastructure"]).toBe("Focus on availability, incident response, monitoring, recovery, and operational ownership.");
   });
 });
+
+import { EMPTY_OUTCOME, DEMO_OUTCOME, nextAction, buildHandoff, outcomeUnknowns } from "@/lib/outcome";
+describe("discovery outcome workflow", () => {
+  const plan = buildPlan("citywest", "Network Engineering");
+  it("default state is further qualification with everything unknown", () => {
+    expect(nextAction(EMPTY_OUTCOME).key).toBe("A");
+    expect(outcomeUnknowns(EMPTY_OUTCOME)).toEqual(["RADIUS deployment", "Technical need", "Infrastructure ownership"]);
+  });
+  it("FreeRADIUS confirmed alone does not qualify", () => {
+    expect(nextAction({ ...EMPTY_OUTCOME, radius: "freeradius" }).key).toBe("A");
+  });
+  it("identified need leads to specialist discussion", () => {
+    expect(nextAction({ ...EMPTY_OUTCOME, need: "identified" }).key).toBe("B");
+  });
+  it("no relevant RADIUS use case gives no opportunity and no services in brief", () => {
+    const o = { ...EMPTY_OUTCOME, radius: "none" as const, need: "identified" as const };
+    expect(nextAction(o).key).toBe("C");
+    const b = buildHandoff("CityWest", plan, o);
+    for (const s of plan.services) expect(b).not.toContain(s.service.name);
+  });
+  it("no relevant need gives no opportunity", () => {
+    expect(nextAction({ ...EMPTY_OUTCOME, radius: "freeradius", need: "none" }).key).toBe("C");
+  });
+  it("brief separates public evidence from simulated input", () => {
+    const b = buildHandoff("CityWest", plan, DEMO_OUTCOME);
+    expect(b).toContain("VERIFIED PUBLIC EVIDENCE");
+    expect(b).toContain("SIMULATED");
+    expect(b).toContain(plan.evidence[0]!.url);
+    expect(buildHandoff("CityWest", plan, EMPTY_OUTCOME)).toContain("PROSPECT-REPORTED (unverified)");
+  });
+});
