@@ -1,88 +1,96 @@
 # ISP Intelligence Engine
 
-An independent, non-affiliated prototype for researching ISP prospects and preparing credible AAA/RADIUS technical discovery tailored to InkBridge Networks' published capabilities. It is not an official InkBridge product and does not contain verified customer opportunities.
-## Live Application
+**Evidence-backed ISP account research, technical discovery, and engineering handoff.**
 
-[Launch ISP Intelligence Engine](https://source-to-studio-bridge.lovable.app)
+[**Launch the live application**](https://source-to-studio-bridge.lovable.app)
 
-## Project Overview
+> **Independent portfolio prototype.** Built using publicly available research and InkBridge Networks' published service information. This project is not affiliated with, sponsored by, or endorsed by InkBridge Networks. The accounts shown are research examples—not verified InkBridge customers, active opportunities, or confirmed FreeRADIUS users.
 
-The ISP Intelligence Engine is a technical sales intelligence prototype built to address a specific challenge in B2B infrastructure sales: moving from public company research to credible technical discovery and actionable qualification.
+## Why I built it
 
-The application supports a four-stage workflow:
+In technical B2B sales, a company expansion announcement may be a reason to investigate an account, but it is **not evidence of an authentication problem, an existing FreeRADIUS deployment, or buying intent**.
 
-1. **Research:** Prioritize ISP accounts using source-linked public signals.
-2. **Discovery:** Prepare technical questions for network engineers, NOC teams, and technology leadership.
-3. **Qualification:** Record findings and evaluate potential AAA/RADIUS-related needs.
-4. **Handoff:** Generate structured summaries for engineering and commercial follow-up.
+I built this prototype to explore a more disciplined way for a business development professional to move from a public account signal to a credible technical conversation—and, only when warranted, to a useful handoff for engineering or commercial follow-up.
 
-**Built with:** React, TypeScript, Lovable, and AI-assisted development.
+The intended users are business development representatives, partnership and account managers, and technical sales specialists working with network infrastructure buyers.
 
-**Scope:** Five ISP accounts, three buyer personas, and rules-based qualification.
+## What the application does
 
-Independent prototype. Not affiliated with InkBridge Networks.
+| Stage | User action | Output |
+| --- | --- | --- |
+| **1. Research** | Compare five curated ISP accounts; search, filter, adjust public-signal weights, and export a ranked CSV. | An explainable **Research Priority** score, not a measure of technical fit or purchase probability. |
+| **2. Discovery** | Select Network Engineering, Network Operations (NOC) / Infrastructure, or CTO / VP Technology. | An account- and persona-specific three-question plan linked to public evidence, technical hypotheses, and follow-ups. |
+| **3. Qualification** | Record simulated or prospect-reported technical findings and optional commercial context. | Transparent next-action guidance that separates unclear needs, potentially relevant AAA/RADIUS needs, and no demonstrated RADIUS opportunity. |
+| **4. Handoff** | Generate a brief from the research and recorded findings. | A copyable technical/commercial summary; when there are no technical findings, the output is labelled a **pre-call research summary**, not a completed handoff. |
 
-## Business problem and intended users
+The prototype includes **five ISP accounts**, **three stakeholder personas**, and **15 curated discovery plans**. Account research and question sets are static and reviewed; the application applies deterministic rules rather than generating answers with a live AI model.
 
-Expansion news can justify research, but cannot establish a prospect's authentication stack, technical pain or buying intent. This tool helps business development representatives, account executives and technical specialists separate public facts, testable hypotheses and unanswered questions before deciding whether engineering involvement is useful.
+## Try the demo
 
-## Research-to-handoff workflow
+1. [Open the application](https://source-to-studio-bridge.lovable.app) and select **Sonic** from the account shortlist.
+2. Switch between **Network Engineering** and **CTO / VP Technology**. Expand **Why ask this?** to see the evidence, technical reasoning, and follow-up behind each question.
+3. Open **Outcome** and choose **Load demo inputs**. All sample call findings are explicitly marked **SIMULATED**; they are not facts about Sonic.
+4. Review the suggested next action, then generate and copy the **Handoff Brief**.
+5. Change a discovery field and observe the previous brief become out of date. Regenerate the brief, or reset the demo to return to an unknown state.
 
-1. **Research:** search five illustrative ISP accounts, filter by region or research priority, adjust public-signal weights and export the ranked CSV. The score is research prioritization, not technical fit or purchase probability.
-2. **Discovery:** select one of three stakeholders and review an evidence-linked snapshot and three ordered questions. Supporting sources are shown when a hypothesis requires broader context.
-3. **Outcome:** record prospect-reported technical findings and optional commercial details. Unknown, unclear, explicitly relevant and unrelated needs remain distinct.
-4. **Handoff:** generate a preliminary discovery brief, or a pre-call research summary when no technical findings exist. Empty summaries never complete handoff. Any input or stakeholder change invalidates the document.
+You can also compare **Beanfield**, where limited public evidence intentionally does not justify a specific AAA/RADIUS service recommendation. This is a deliberate example of avoiding an unsupported pitch.
 
-Category A requires further qualification. Category B requires an explicitly AAA/RADIUS-related need and suggests exploratory engineering validation only, even if the exact RADIUS deployment is unknown. Category C covers no relevant use case, no relevant need or an unrelated need. Commercial fields never upgrade the category, and Category B is not a fully qualified commercial opportunity.
+## How qualification works
 
-## Technical architecture
+The qualification outcomes are deliberately conservative:
 
-- React 19, TypeScript, TanStack Start/TanStack Router, Vite and Tailwind CSS.
-- `src/routes/index.tsx` mounts the migrated single-page interface; `src/lib/isp-markup.ts` and `src/lib/isp-app.ts` retain its imperative rendering and interaction model.
-- `src/lib/discovery-data.ts` stores static evidence, hypotheses, services and questions; `src/lib/discovery.ts` assembles all 15 plans deterministically, without model calls or randomness.
-- `src/lib/outcome.ts` contains pure qualification, progress and brief-generation rules.
-- Discovery inputs and documents exist only in per-tab memory. Refreshing clears them. Demo inputs are fictional and account-isolated; they never modify research.
-- There is no database, authentication, live AI API, CRM connection or automatic research refresh. Clipboard and CSV functions run in the browser.
+- **A — Further qualification required:** No explicitly relevant AAA/RADIUS need has been established, or its relevance remains unclear. Merely confirming FreeRADIUS use does not create an opportunity.
+- **B — Potential specialist discussion:** An AAA/RADIUS-related need has been reported, but it still requires engineering validation. **This is not a fully qualified commercial opportunity.**
+- **C — No demonstrated RADIUS opportunity:** The reported need is absent, unrelated to AAA/RADIUS, or there is no relevant RADIUS use case. Other InkBridge offerings are not automatically ruled out.
 
-## Evidence verification and limitations
+Commercial fields—such as support model, urgency, budget, decision process, and stakeholders—add context to the handoff but **do not automatically promote an account** into a higher category.
 
-Each evidence record includes a publisher, citation, date, limitation and verification state. “Source reviewed” records reflect the curated dataset's review status, not a guarantee of current accuracy. “Source requires verification” records must not be treated as independently confirmed. The Xplore Alberta fixed-wireless item references a newsroom index and still requires re-verification; this correction pass did not re-review external sources.
+## Technical implementation
 
-Hypotheses are inferences, not established architecture. No researched account has a publicly verified FreeRADIUS deployment in this dataset. Announced builds are not completed infrastructure, transport resilience does not demonstrate AAA resilience, and simulated inputs are not real customer information. Research is static and must be checked before external use.
+- **Stack:** React 19, TypeScript, TanStack Start / TanStack Router, Vite, Tailwind CSS, and Bun.
+- **Application UI:** `src/routes/index.tsx` mounts the application; `src/lib/isp-markup.ts` and `src/lib/isp-app.ts` contain its migrated markup and interaction controller.
+- **Research and discovery:** `src/lib/discovery-data.ts` holds source-linked account evidence, hypotheses, InkBridge service references, and curated questions. `src/lib/discovery.ts` assembles the persona-specific plans.
+- **Qualification and handoff:** `src/lib/outcome.ts` implements deterministic next-action rules, progress state, and brief generation.
+- **Data handling:** Discovery inputs exist only in the active browser tab's memory and are cleared on refresh. Simulated findings remain separate from public account research.
 
-## Demonstration
+There is **no backend, database, login system, CRM integration, automated account scraping, live AI inference, or automatic research refresh**. Copy-to-clipboard and CSV export run in the browser.
 
-1. Open an account such as Sonic and switch stakeholders to compare discovery questions.
-2. Generate an empty brief: it is a pre-call summary and does not complete handoff.
-3. Choose **Load demo inputs**. Review the fictional-data banner, relevant need and Category B validation-only recommendation.
-4. Generate the preliminary handoff; edit notes or a qualification field and confirm the brief disappears and progress updates.
-5. Regenerate, reset, then open another account to confirm inputs do not leak between accounts. Reload to clear all in-memory inputs.
-6. Test filters, weights, ranked CSV and copy controls independently of the simulation.
+## Evidence standards and limitations
 
-## Local setup
+Every evidence record includes a source, publication date when available, a verification status, and a limitation. The interface separates **published facts**, **unverified technical hypotheses**, and **unknowns or prospect-reported information**.
 
-Install a current Node.js version compatible with Vite and Bun. Clone this repository, enter its directory, then run:
+- **Source reviewed** means the referenced publication was reviewed for the stated claim; it is not a guarantee of ongoing accuracy.
+- **Source requires verification** means the claim or link needs further checking before external use.
+- The Xplore Alberta fixed-wireless expansion record references [Xplore's official February 3, 2026 announcement](https://www.xplore.ca/about/news/xplore-awarded-federal-and-provincial-funding-to-expand-ultra-fast-fixed-wireless-internet-across-rural-alberta/). It concerns **announced funding and planned expansion**, not proof of completed deployments or authentication requirements.
+- None of the five accounts has a publicly verified FreeRADIUS deployment in this dataset. Fibre expansion, network resilience, and subscriber growth do not establish AAA problems or purchasing intent.
+- Hypotheses and suggested InkBridge service areas must be validated through discovery and, when appropriate, specialist review. Simulation data must never be represented as real prospect conversations.
 
-```sh
+This is a five-account demonstration of a workflow—not a production research platform, validated lead-scoring system, or proven revenue-generation process.
+
+## Run locally
+
+**Requirements:** A current Node.js version supported by the project's Vite release, plus [Bun](https://bun.sh/).
+
+```bash
+git clone https://github.com/marshallreed63-lab/isp-technical-discovery-engine.git
+cd isp-technical-discovery-engine
 bun install
 bun run dev
 ```
 
-Use the local URL printed by Vite. No application credentials or backend provisioning are required. For a production build outside the Lovable preview, run `bun run build`.
+Open the local address displayed in your terminal. No API keys or backend setup are needed. To build the project, run `bun run build`.
 
-## Testing
+## Tests and quality assurance
 
-```sh
+```bash
 bun run test
-bunx vitest run src/test/discovery.test.tsx src/test/pre-release.test.tsx src/test/app-routing.test.tsx
+bun run build
 ```
 
-Tests cover deterministic plans, evidence relationships, qualification rules, handoff completion and routing. Browser regression checks should also cover stakeholder changes, all input types, clipboard contents, CSV values, account isolation and mobile navigation. See `QA_REPORT.md` for this correction pass's results and remaining limitations.
+The test suite covers the source-to-hypothesis mappings, role-specific plans, qualification states, handoff behavior, and application routing. Browser checks cover account selection, filters, scoring sliders, clipboard actions, CSV export, demo-data isolation, and mobile interactions. For the recorded pre-release testing history, see [QA_REPORT.md](QA_REPORT.md); rerun the commands above against the current commit.
 
-## Development transparency
+## Development approach and next steps
 
-This project was imported and developed with AI assistance using Lovable. It demonstrates a research and qualification workflow; it does not claim independently written code, deployed sales operations or validated commercial results. Human review remains necessary for research, outreach and engineering recommendations.
+This application was built and iterated using **Lovable and AI-assisted development**. The emphasis was on defining the sales workflow, structuring source-grounded discovery, designing conservative qualification rules, testing edge cases, and refining the user experience. The project does not claim independently hand-written code, real customer deployments, or measured business outcomes.
 
-## Future development ideas (not implemented)
-
-Potential later work includes consent-based saved research, source-refresh workflows, reviewed AI-assisted summaries and CRM handoff. Each would require separate scope, privacy controls and evaluation; none is part of this prototype or correction pass.
+Possible future extensions include reviewed source-refresh workflows, secure storage of consented discovery data, AI-assisted research with citations, and CRM handoff. Those features are **not implemented** in this prototype and would require additional validation, access controls, and privacy considerations.
