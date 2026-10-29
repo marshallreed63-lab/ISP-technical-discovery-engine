@@ -97,7 +97,7 @@ describe("discovery outcome workflow", () => {
     expect(nextAction({ ...EMPTY_OUTCOME, radius: "freeradius" }).key).toBe("A");
   });
   it("identified need leads to specialist discussion", () => {
-    expect(nextAction({ ...EMPTY_OUTCOME, need: "identified" }).key).toBe("B");
+    expect(nextAction({ ...EMPTY_OUTCOME, need: "relevant" }).key).toBe("B");
   });
   it("no relevant RADIUS use case gives no opportunity and no services in brief", () => {
     const o = { ...EMPTY_OUTCOME, radius: "none" as const, need: "identified" as const };
@@ -110,7 +110,7 @@ describe("discovery outcome workflow", () => {
   });
   it("brief separates public evidence from simulated input", () => {
     const b = buildHandoff("CityWest", plan, DEMO_OUTCOME);
-    expect(b).toContain("VERIFIED PUBLIC EVIDENCE");
+    expect(b).toContain("PUBLIC RESEARCH EVIDENCE");
     expect(b).toContain("SIMULATED");
     expect(b).toContain(plan.evidence[0]!.url);
     expect(buildHandoff("CityWest", plan, EMPTY_OUTCOME)).toContain("PROSPECT-REPORTED (unverified)");
@@ -130,7 +130,7 @@ describe("commercial qualification", () => {
     expect(explainAction(o).specialist).toMatch(/Not yet justified/);
   });
   it("need with no budget → B for validation only, budget flagged missing", () => {
-    const o = { ...EMPTY_OUTCOME, radius: "freeradius" as const, need: "identified" as const };
+    const o = { ...EMPTY_OUTCOME, radius: "freeradius" as const, need: "relevant" as const };
     const ex = explainAction(o);
     expect(nextAction(o).key).toBe("B");
     expect(ex.missing).toContain("Budget status");
@@ -138,7 +138,7 @@ describe("commercial qualification", () => {
     expect(opportunityFraming(o).primary).toMatch(/Commercial FreeRADIUS support/);
   });
   it("known decision process is no longer missing; category unchanged", () => {
-    const o = { ...EMPTY_OUTCOME, need: "identified" as const, decision: "described" as const };
+    const o = { ...EMPTY_OUTCOME, need: "relevant" as const, decision: "described" as const };
     expect(missingCommercial(o)).not.toContain("Decision-maker and purchasing process");
     expect(nextAction(o).key).toBe("B");
   });
