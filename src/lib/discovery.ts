@@ -1,6 +1,6 @@
 // Deterministic discovery-plan generator. No AI, no randomness: same inputs, same plan.
 import {
-  ACCOUNT_CONTEXT, CHALLENGES, COMMON_UNKNOWNS, EVIDENCE, QUESTION_BANK, SERVICES,
+  ACCOUNT_CONTEXT, CHALLENGES, NO_AAA_OBJECTIVE, PERSONAS, COMMON_UNKNOWNS, EVIDENCE, QUESTION_BANK, SERVICES,
   type Depth, type Evidence, type Persona, type Question,
 } from "./discovery-data";
 
@@ -64,5 +64,21 @@ export function datasetMetrics(accounts: { id: string; region: string }[]) {
     accountsWithLatestYear: latestYear === null ? 0 : accounts.filter((a) => evidenceFor(a.id).some((e) => evidenceYear(e) === latestYear)).length,
     evidenceRecords: EVIDENCE.length,
     verifiedFreeRadius: 0, // no public record confirms a FreeRADIUS stack for any account
+  };
+}
+
+/** Counts plans that actually build with questions, rather than assuming accounts × personas. */
+export function discoveryPlanCount(accounts: { id: string }[]) {
+  const personas = Object.keys(PERSONAS) as Persona[];
+  return accounts.reduce((n, a) => n + personas.filter((p) => buildPlan(a.id, p).questions.length > 0).length, 0);
+}
+
+/** Signal → hypothesis → objective, taken only from existing plan data. */
+export function snapshotFor(plan: ReturnType<typeof buildPlan>) {
+  const q = plan.questions[0];
+  return {
+    signal: q ? evById(q.evidenceId) : plan.evidence[0],
+    hypothesis: plan.challenges[0]?.hypothesis ?? null,
+    objective: plan.insufficient ? NO_AAA_OBJECTIVE : q?.learn ?? NO_AAA_OBJECTIVE,
   };
 }
