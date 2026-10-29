@@ -1,60 +1,458 @@
-# Final pre-release QA — 29 October 2026
+# ISP Intelligence Engine — Final Quality Assurance Report
 
-## Result
+**Report date:** October 29, 2026  
+**Project:** ISP Intelligence Engine  
+**Release status:** Pre-release QA completed; portfolio publication underway  
+**Application:** https://source-to-studio-bridge.lovable.app  
+**Repository:** https://github.com/marshallreed63-lab/isp-technical-discovery-engine
 
-All 50 automated tests pass. All 24 grouped desktop/mobile browser regression checks pass, plus targeted checks on both sizes for stakeholder invalidation, retained notes, clearing the last finding and metadata. The latest preview build reports **build OK**, with no browser runtime errors observed.
+---
 
-## Corrections
+## 1. Executive Summary
 
-- Snapshots select the first question's `challengeId`, rather than an independently ranked hypothesis. All supporting challenge sources are displayed as additional context, with verification states. Xplore's fibre announcement remains the opening signal while its mixed-access sources supply the broader context. Question wording and research records are unchanged.
-- Unreviewed evidence cards and exported briefs no longer present the Xplore newsroom item as verified. Source limitations are preserved in briefs. No sources were newly marked reviewed.
-- A vague “identified but unvalidated” need remains Category A. The existing need selector now explicitly distinguishes relevant AAA/RADIUS needs from unclear and unrelated needs.
-- Empty documents are pre-call research summaries and do not complete handoff. Preliminary discovery handoffs require at least one technical finding: RADIUS status, need status, ownership, or substantive architecture/operational notes. Open questions or commercial-only entries do not count as technical findings.
-- Every editable field refreshes progress and guidance and invalidates a generated document. Text editing preserves focus, other inputs and stakeholder selection. Clearing the last technical finding removes completion and returns the current step to Outcome.
-- README now documents the product, architecture, limitations, demonstration, setup, tests and future ideas. Metadata identifies the project and removes generic Lovable author/social attribution while README transparently credits AI-assisted Lovable development.
+The ISP Intelligence Engine has completed its primary development, correction, and quality assurance cycle.
 
-## Exact specialist conditions
+The application is an independent technical sales intelligence prototype designed to help business development professionals research Internet Service Providers (ISPs), prepare credible AAA/RADIUS discovery conversations, record qualification findings, and generate structured technical handoffs.
 
-First-match rules:
+### Final reported results
 
-1. **Category C:** no relevant RADIUS use case, no relevant need, or a need unrelated to AAA/RADIUS. No specialist introduction is recommended for this assessed scope; other InkBridge offerings are not evaluated.
-2. **Category B:** an explicitly AAA/RADIUS-related need has been reported. FreeRADIUS or another implementation may be reported, or deployment may remain unknown. The relevant requirement—not a guessed stack—justifies exploratory engineering validation. Ownership and commercial fields may still be unknown.
-3. **Category A:** the technical need is unknown or its relevance is unclear, including when FreeRADIUS itself has been reported. Further discovery is required before specialist involvement.
+| Metric | Result |
+|---|---|
+| Automated tests | **51 passed** |
+| Initial desktop/mobile regression checks | **24 passed** |
+| Core audit issues corrected | **5 of 5** |
+| Latest reported build | **Successful** |
+| Browser runtime errors observed | **None** |
+| ISP accounts | **5** |
+| Account–stakeholder discovery plans | **15** |
+| Confirmed FreeRADIUS deployments | **0** |
+| Known unresolved blocking defects | **None reported** |
 
-Commercial fields never upgrade A or C. B never automatically represents a fully qualified commercial opportunity, even when the prospect describes every commercial field.
+All 50 tests passed during the original final correction cycle. Following the Xplore Alberta citation update, Lovable reported 51 passing automated tests, including an additional source-specific regression test.
 
-## Regression results
+The original 24 grouped browser checks passed at desktop and mobile sizes. Targeted browser verification was subsequently performed on the updated Xplore evidence.
 
-| Scenario | Desktop | Mobile | Automated coverage / evidence |
-| --- | --- | --- | --- |
-| All 15 account–stakeholder discovery plans | PASS | PASS | 15 individual snapshot relationship tests; ordered question tests |
-| Evidence/hypothesis alignment and additional sources | PASS | PASS | Selected challenge and complete supporting-source set asserted for all 15 |
-| Reviewed/unreviewed evidence labels | PASS | PASS | Xplore newsroom card observed as “Source requires verification” |
-| Stakeholder switching | PASS | PASS | Three questions and selected stakeholder preserved; generated brief invalidated |
-| Qualification outcome rules | PASS | PASS | Unknown, unclear, relevant, unrelated, FreeRADIUS-only and no-use-case cases tested |
-| Empty handoff | PASS | PASS | Pre-call summary; no completion; Outcome remains current |
-| Populated preliminary handoff | PASS | PASS | Fictional findings explicitly marked; handoff completion displayed |
-| Editing technical notes and open questions | PASS | PASS | Brief removed; other fields retained; completion refreshed |
-| Every technical/commercial dropdown | PASS | PASS | Each field changed after brief generation; invalidation confirmed |
-| Every commercial text field | PASS | PASS | Each field edited after brief generation; invalidation confirmed |
-| Clearing last finding / current step / next guidance | PASS | PASS | Return to Outcome; discovery/handoff completion cleared |
-| Reset, other-account and refresh isolation | PASS | PASS | Inputs and briefs reset; fictional findings do not leak |
-| Account search, region and priority filters | PASS | PASS | Toronto result, USA result count and minimum scores checked |
-| Weight sliders and reset | PASS | PASS | All-zero scores and restored nonzero scores checked |
-| CSV export | PASS | PASS | Six rows, priority column, displayed score order and unverified stack values checked |
-| Opener and brief copy buttons | PASS | PASS | Clipboard contents compared with displayed text |
-| Back navigation preserves filters | PASS | PASS | Sonic search retained |
-| Section navigation and overflow | PASS | PASS | All sections visible when selected; no page-width overflow |
-| Independent disclaimer and simulation labels | PASS | PASS | Footer disclaimer, demo banner and simulated brief observed |
-| Page metadata / no `@Lovable` attribution | PASS | PASS | App-specific title and absence of social account tag confirmed |
-| Browser runtime errors | PASS | PASS | None observed |
-| Fresh external citation verification | NOT TESTED | NOT TESTED | Outside this correction pass; no research statuses changed |
-| GitHub connection / remote publication | NOT TESTED | NOT TESTED | Documentation prepared only; not requested |
+**Important distinction:** These results were reported by the development and testing environment. They demonstrate the tested behavior of the prototype but do not constitute independent security certification, production-readiness certification, or verification of real-world sales performance.
 
-Browser sizes: 1280 × 1800 and 390 × 844. Initial browser assertion failures were test-selector assumptions (uppercase status styling and the footer's class), not application defects; corrected checks were rerun successfully.
+---
 
-## Remaining limitations and scope
+## 2. Testing Scope and Methodology
 
-Update (29 Oct 2026): the Xplore Alberta citation now points to the direct February 3, 2026 announcement and is marked Source reviewed; it confirms announced funding and planned expansion only. Other “Source reviewed” labels retain their existing historical review status; sources were not freshly fetched in this pass. No researched account's FreeRADIUS deployment is verified. Human review remains necessary before outreach or engineering recommendations.
+Quality assurance focused on five areas:
 
-No backend, AI API, CRM integration, accounts, charts or redesign were added. Research, scoring, citations and discovery question text were preserved. Work stopped for final review; nothing was published or connected to GitHub.
+1. Research integrity and evidence-to-hypothesis alignment.
+2. Account-specific technical discovery.
+3. Qualification and next-action decision logic.
+4. Handoff generation, data integrity, and application state.
+5. User interface, navigation, and regression testing.
+
+Testing combined automated checks with browser-based interaction tests.
+
+### Browser environments
+
+| Environment | Viewport |
+|---|---|
+| Desktop | 1280 × 1800 |
+| Mobile | 390 × 844 |
+
+Browser tests covered application navigation, inputs, dynamically generated content, qualification changes, document generation, copy-to-clipboard functions, CSV exports, and responsive layout.
+
+Initial browser assertion failures were traced to test-selector assumptions rather than application defects. Corrected checks were rerun successfully.
+
+---
+
+## 3. Corrections Implemented
+
+### 3.1 Evidence-to-Hypothesis Alignment
+
+**Issue:** Account snapshots could display a public evidence record alongside a technical hypothesis that was not directly associated with that record.
+
+**Resolution:**
+
+- Updated discovery snapshot assembly to select the hypothesis associated with the first discovery question's `challengeId`.
+- Ensured the displayed evidence supports the selected technical challenge.
+- Preserved additional supporting sources where a hypothesis requires broader context.
+- Displayed source verification status and relevant limitations.
+
+For example, Xplore's fibre expansion announcement remains an opening research signal, while separate mixed-access evidence provides broader context for relevant technical discovery.
+
+**Validation:**
+
+- All 15 account–stakeholder combinations were covered by automated relationship checks.
+- Existing question wording and underlying scoring data were preserved.
+
+**Status: PASS**
+
+### 3.2 Evidence Verification Labels
+
+**Issue:** Previously, certain evidence records requiring further verification could appear under a general "Verified fact" label.
+
+**Resolution:**
+
+- Evidence labels now reflect the actual source-review status.
+- Records requiring re-verification are displayed accordingly.
+- Generated briefs preserve source limitations and verification distinctions.
+- Source-review status is not automatically upgraded by the application.
+
+**Status: PASS**
+
+### 3.3 Specialist Referral and Qualification Logic
+
+**Issue:** A vague or unvalidated technical need could trigger a potential specialist discussion even when its relationship to AAA/RADIUS had not been established.
+
+**Resolution:**
+
+The qualification system now distinguishes:
+
+- Explicitly relevant AAA/RADIUS needs.
+- Unclear technical needs.
+- Needs unrelated to AAA/RADIUS.
+- No demonstrated technical need.
+- No relevant RADIUS use case.
+
+A reported need must be explicitly AAA/RADIUS-related before Category B is suggested.
+
+Merely confirming that a prospect uses FreeRADIUS does not create a qualified opportunity or automatically trigger an engineering referral.
+
+**Status: PASS**
+
+### 3.4 Empty Handoff Handling
+
+**Issue:** The application could generate a document with no recorded technical findings and incorrectly present the Handoff stage as complete.
+
+**Resolution:**
+
+Documents generated without meaningful technical findings are now labelled **Pre-call Research Summary**.
+
+A preliminary discovery handoff requires at least one technical finding, such as:
+
+- Reported RADIUS deployment status.
+- Reported technical need or relevance.
+- Infrastructure ownership.
+- Substantive architecture or operational notes.
+
+Open questions or commercial-only details do not independently constitute technical discovery findings.
+
+A generated document alone does not establish successful qualification.
+
+**Status: PASS**
+
+### 3.5 Document Freshness and Workflow Progress
+
+**Issue:** Editing notes or other discovery fields could leave an outdated handoff visible or cause workflow progress indicators to become inconsistent.
+
+**Resolution:**
+
+- Editing any relevant discovery or commercial field invalidates the generated document.
+- Workflow progress and next-step guidance are recalculated.
+- Updated notes are reflected in regenerated briefs.
+- Clearing the final technical finding removes handoff completion and returns the workflow to Outcome.
+- Text editing preserves input focus and unrelated field values.
+- Changing stakeholders invalidates an existing brief without unnecessarily clearing retained discovery inputs.
+
+**Status: PASS**
+
+---
+
+## 4. Qualification Decision Rules
+
+The engine uses deterministic, explainable next-action rules.
+
+It does not calculate purchase probabilities, generate a second numerical opportunity score, or automatically qualify an account based on publicly available research.
+
+### Category A — Further Qualification Required
+
+Applied when:
+
+- The technical need is unknown.
+- The relevance of a reported need is unclear.
+- FreeRADIUS usage has been reported without an established technical need.
+- There is insufficient information to justify specialist involvement.
+
+**Next action:** Continue discovery and establish technical relevance before proposing further engagement.
+
+### Category B — Potential Specialist Discussion
+
+Applied when:
+
+- A prospect-reported need is explicitly related to AAA/RADIUS.
+- The technical requirement has not yet been validated by engineering.
+
+The prospect's RADIUS implementation may be known or unknown.
+
+**Next action:** Consider exploratory technical validation where appropriate.
+
+Category B does not represent a fully qualified commercial opportunity, confirmed project, or approved engineering engagement.
+
+### Category C — No Demonstrated RADIUS Opportunity
+
+Applied when:
+
+- No relevant RADIUS use case has been identified.
+- The prospect reports no relevant technical need.
+- The identified need is unrelated to AAA/RADIUS.
+
+**Next action:** Do not recommend an AAA/RADIUS specialist introduction based on the assessed findings.
+
+Other InkBridge service areas have not necessarily been evaluated or ruled out.
+
+### Commercial Qualification Rules
+
+Commercial inputs may include:
+
+- Existing support model.
+- Operational impact.
+- Project urgency.
+- Budget status.
+- Decision process.
+- Stakeholders and next steps.
+
+These fields enrich the handoff but do not automatically upgrade an account's technical qualification category.
+
+**Validation:** Automated tests covered unknown, unclear, relevant, unrelated, FreeRADIUS-only, and no-use-case scenarios.
+
+**Status: PASS**
+
+---
+
+## 5. Regression Test Results
+
+The following summarizes the final correction-cycle browser checks and associated automated coverage.
+
+| Test area | Desktop | Mobile |
+|---|---|---|
+| All 15 account–stakeholder discovery plans | PASS | PASS |
+| Evidence-to-hypothesis alignment | PASS | PASS |
+| Supporting source references and limitations | PASS | PASS |
+| Reviewed/unreviewed evidence handling | PASS | PASS |
+| Stakeholder switching | PASS | PASS |
+| Technical qualification logic | PASS | PASS |
+| Empty pre-call research summary | PASS | PASS |
+| Populated preliminary handoff | PASS | PASS |
+| Editing technical notes and open questions | PASS | PASS |
+| Technical and commercial field changes | PASS | PASS |
+| Handoff invalidation and regeneration | PASS | PASS |
+| Clearing the final technical finding | PASS | PASS |
+| Demo reset and account isolation | PASS | PASS |
+| Search and account filtering | PASS | PASS |
+| Scoring sliders and reset | PASS | PASS |
+| CSV export and values | PASS | PASS |
+| Copy opener and Copy Brief | PASS | PASS |
+| Back navigation and retained filters | PASS | PASS |
+| Section navigation and page overflow | PASS | PASS |
+| Independent disclaimer and simulated-data labels | PASS | PASS |
+| Application metadata | PASS | PASS |
+| Browser runtime error checks | PASS | PASS |
+
+The 24 grouped browser checks passed during the final correction cycle. The table groups related assertions rather than representing a separate set of 22 tests.
+
+### Additional validations
+
+- Account research remains unchanged by simulated inputs.
+- Switching accounts does not leak fictional discovery findings into another account.
+- Browser refresh clears in-memory qualification inputs.
+- All-zero scoring weights do not crash the application.
+- CSV export preserves score ordering and unverified deployment fields.
+- Copy actions reproduce the intended displayed content.
+- Application metadata no longer uses generic Lovable social-account attribution.
+
+---
+
+## 6. Xplore Alberta Citation Correction
+
+**Correction date:** October 29, 2026
+
+The Xplore Alberta fixed-wireless expansion evidence record was updated after the original correction-cycle QA report.
+
+### Updated source
+
+**Publisher:** Xplore Inc.  
+**Publication date:** February 3, 2026  
+**Article:** Xplore Awarded Federal and Provincial Funding to Expand Ultra-Fast Fixed Wireless Internet Across Rural Alberta
+
+**Source:**  
+https://www.xplore.ca/about/news/xplore-awarded-federal-and-provincial-funding-to-expand-ultra-fast-fixed-wireless-internet-across-rural-alberta/
+
+### Confirmed announcement details
+
+The updated evidence record describes:
+
+- $60 million in combined federal and provincial funding.
+- More than $120 million in planned investment by Xplore.
+- Expansion of 5G Ultra fixed-wireless service across rural Alberta.
+- A stated target of more than 70,000 underserved households.
+- Plans involving more than 400 internet towers.
+
+These are announced investments and planned infrastructure developments, not evidence that the entire rollout has been completed.
+
+The announcement does not establish Xplore's authentication architecture, use of FreeRADIUS, operational incidents, or need for InkBridge services.
+
+### Changes and validation
+
+- Replaced the general newsroom index with the direct announcement.
+- Updated the title, publisher, date, and evidence description.
+- Updated the record to **Source reviewed** following source comparison.
+- Preserved existing unverified technical hypotheses.
+- Confirmed the updated source in Network Engineering and NOC / Infrastructure browser views.
+- Confirmed the updated citation was included in a generated handoff.
+- Added an automated citation-specific regression check.
+
+**Result: 51 automated tests passed.**
+
+The CTO / VP Technology browser view was not separately rechecked after this citation-only change. It uses the same underlying evidence record, which was covered by the new automated check.
+
+---
+
+## 7. Data Integrity and Simulation Controls
+
+The application uses static, source-linked research and a deterministic discovery engine.
+
+It does not perform live AI inference or automatically collect new prospect information.
+
+### Data separation
+
+Three categories of information remain distinct:
+
+**Public evidence:** Published information about companies, with citations and limitations.
+
+**Technical hypotheses:** Potential areas for discovery that have not been confirmed.
+
+**Discovery findings:** Information entered by a user during a simulated or actual research workflow.
+
+### Demonstration safeguards
+
+- Demo inputs are clearly marked as fictional.
+- Simulated information never becomes verified public research.
+- Data entered for one account does not automatically populate another.
+- Reset removes the simulated qualification state.
+- Refreshing the page clears temporary discovery inputs.
+- Generated handoffs distinguish public evidence from entered findings.
+
+The application does not maintain permanent discovery records or connect to an external customer database.
+
+**Status: PASS for tested isolation and reset scenarios.**
+
+---
+
+## 8. Documentation and Metadata
+
+The GitHub README was updated to include:
+
+- Project purpose and intended users.
+- Live application link.
+- Research-to-handoff workflow.
+- Technical implementation.
+- Qualification methodology.
+- Evidence and research limitations.
+- Demonstration instructions.
+- Local setup and testing commands.
+- Transparent acknowledgement of Lovable and AI-assisted development.
+- Potential future development areas.
+
+Application metadata identifies the ISP Intelligence Engine rather than retaining generic Lovable author or social-account attribution.
+
+The application retains an independent-project disclaimer.
+
+**Status: Documentation updated.**
+
+---
+
+## 9. Publication and GitHub Status
+
+The application has been published at:
+
+https://source-to-studio-bridge.lovable.app
+
+The project was subsequently connected to GitHub using Lovable's Git integration.
+
+Lovable displayed **Connected** and **In sync with GitHub** after the connection was established.
+
+Repository:
+
+https://github.com/marshallreed63-lab/isp-technical-discovery-engine
+
+These steps occurred after the original automated QA cycle.
+
+**Important:** The automated application tests do not independently verify GitHub synchronization, repository visibility, or that the live published deployment contains every subsequent source-code change.
+
+Final release verification should confirm:
+
+1. Lovable displays the latest project as published.
+2. GitHub synchronization is current.
+3. The README and QA report reflect the latest changes.
+4. The live application opens without authentication when public access is intended.
+5. Repository visibility is configured deliberately after reviewing the code for sensitive information.
+
+---
+
+## 10. Known Limitations
+
+### Research scope
+
+The dataset contains five manually curated ISP accounts.
+
+The application has not demonstrated automated research scalability or predictive sales performance.
+
+### Research currency
+
+Public evidence reflects the dates and review states recorded in the dataset.
+
+The Xplore Alberta announcement was reviewed during the October 29 correction. Other historically reviewed sources were not all independently refreshed during the final QA cycle.
+
+Research must be rechecked before real-world outreach.
+
+### Technical qualification
+
+No account in the current dataset has a publicly verified FreeRADIUS deployment.
+
+Discovery hypotheses do not establish real network architecture, operational pain, or buying intent.
+
+A Category B outcome suggests possible technical validation, not a guaranteed opportunity.
+
+### Application capabilities
+
+The prototype does not currently include:
+
+- Persistent prospect records.
+- User authentication or role-based access.
+- CRM integration.
+- Automated account research refresh.
+- Live AI inference.
+- Secure production storage of customer discovery notes.
+- Validated sales forecasting or opportunity scoring.
+
+### Operational validation
+
+The tool has not been deployed as a production sales system.
+
+No measured improvements in meetings booked, conversion rates, engineering efficiency, or revenue can be attributed to the prototype.
+
+### Security and privacy
+
+The QA cycle was primarily functional and did not include a formal penetration test or independent security audit.
+
+The application should not be used to store confidential customer data or sensitive infrastructure details without appropriate security design and validation.
+
+---
+
+## 11. Final Assessment
+
+**Outcome: Passed the reported functional pre-release QA cycle.**
+
+The ISP Intelligence Engine successfully demonstrates an end-to-end technical sales workflow:
+
+**Account Research → Technical Discovery → Qualification → Engineering Handoff**
+
+The final correction cycle addressed the original issues related to evidence alignment, source labeling, specialist referral conditions, document completion, and application state synchronization.
+
+The subsequent citation update brought the automated test count to 51 passing tests.
+
+No unresolved blocking functional defects were reported during the final correction and citation-update cycles.
+
+The project is suitable for presentation as an **independent, limited-scope technical sales portfolio prototype**, subject to the final publication and repository checks.
+
+This assessment does not constitute certification for production use, confirmation of live sales effectiveness, or independent validation of prospect infrastructure.
+
+---
+
+**Report conclusion:** Functional QA completed. Final GitHub presentation and publication verification remain the last portfolio-release activities.
