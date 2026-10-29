@@ -116,3 +116,43 @@ describe("discovery outcome workflow", () => {
     expect(buildHandoff("CityWest", plan, EMPTY_OUTCOME)).toContain("PROSPECT-REPORTED (unverified)");
   });
 });
+
+import { explainAction, opportunityFraming, missingCommercial } from "@/lib/outcome";
+describe("commercial qualification", () => {
+  const plan = buildPlan("sonic", "Network Engineering");
+  it("unknown commercial fields are all reported missing", () => {
+    expect(missingCommercial(EMPTY_OUTCOME)).toHaveLength(7);
+  });
+  it("FreeRADIUS without a support need is not a support opportunity", () => {
+    const o = { ...EMPTY_OUTCOME, radius: "freeradius" as const };
+    expect(nextAction(o).key).toBe("A");
+    expect(opportunityFraming(o).primary).toBeNull();
+    expect(explainAction(o).specialist).toMatch(/Not yet justified/);
+  });
+  it("need with no budget → B for validation only, budget flagged missing", () => {
+    const o = { ...EMPTY_OUTCOME, radius: "freeradius" as const, need: "identified" as const };
+    const ex = explainAction(o);
+    expect(nextAction(o).key).toBe("B");
+    expect(ex.missing).toContain("Budget status");
+    expect(ex.specialist).toMatch(/not a qualified opportunity/);
+    expect(opportunityFraming(o).primary).toMatch(/Commercial FreeRADIUS support/);
+  });
+  it("known decision process is no longer missing; category unchanged", () => {
+    const o = { ...EMPTY_OUTCOME, need: "identified" as const, decision: "described" as const };
+    expect(missingCommercial(o)).not.toContain("Decision-maker and purchasing process");
+    expect(nextAction(o).key).toBe("B");
+  });
+  it("commercial fields never upgrade A or C", () => {
+    const full = { ...DEMO_OUTCOME, need: "unknown" as const };
+    expect(nextAction(full).key).toBe("A");
+    expect(nextAction({ ...DEMO_OUTCOME, radius: "none" }).key).toBe("C");
+    expect(explainAction({ ...DEMO_OUTCOME, radius: "none" }).specialist).toMatch(/Not justified/);
+  });
+  it("brief has three sections and never records a budget amount", () => {
+    const b = buildHandoff("Sonic", plan, DEMO_OUTCOME);
+    expect(b).toMatch(/1\. TECHNICAL ENVIRONMENT[\s\S]*2\. BUSINESS QUALIFICATION[\s\S]*3\. RECOMMENDED NEXT ACTION/);
+    expect(b).toContain("no amount recorded");
+    expect(b).toContain("buying authority not verified");
+    expect(b).not.toMatch(/\$\d/);
+  });
+});

@@ -2,7 +2,7 @@
 // Original imperative app logic; initIspApp runs once the markup is mounted.
 import { SIGNALS, ACCOUNTS } from "./isp-data";
 import { PERSONAS, CONCEPTS, HEROTEL_NOTE, EVIDENCE, DISCOVERY_ANGLE, EVIDENCE_NOTES, STEP_LABELS } from "./discovery-data";
-import { EMPTY_OUTCOME, DEMO_OUTCOME, RADIUS_LABELS, NEED_LABELS, OWNERSHIP_LABELS, ACTIONS, nextAction, outcomeUnknowns, buildHandoff } from "./outcome";
+import { EMPTY_OUTCOME, DEMO_OUTCOME, RADIUS_LABELS, NEED_LABELS, OWNERSHIP_LABELS, SUPPORT_LABELS, URGENCY_LABELS, BUDGET_LABELS, DECISION_LABELS, ACTIONS, nextAction, outcomeUnknowns, explainAction, opportunityFraming, buildHandoff } from "./outcome";
 import { buildPlan, datasetMetrics, evidenceFor, latestEvidence, discoveryPlanCount, snapshotFor } from "./discovery";
 export function initIspApp() {
 
@@ -48,9 +48,11 @@ function renderDetail(){
  renderWorkflow(a,plan);
  document.getElementById('backBtn').addEventListener('click',()=>setView('research'));
  document.getElementById('copyDraft').addEventListener('click',()=>copyText(plan.opener));}
+const li=xs=>xs.length?`<ul>${xs.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p class="caption">None</p>';
+function actionHtml(o){const act=nextAction(o),ex=explainAction(o),fr=opportunityFraming(o),unk=outcomeUnknowns(o);return `<div class="eyebrow">Suggested next action</div><strong>${act.key}. ${esc(ACTIONS[act.key].title)}</strong><p class="caption">${esc(ACTIONS[act.key].summary)}</p><ul>${act.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>${unk.length?`<p class="caption"><span class="lbl unk">Unknown</span> ${unk.map(esc).join(' · ')}</p>`:''}<div class="wf-explain"><div><h4>Established (${o.demo?'simulated':'prospect-reported'})</h4>${li(ex.established)}</div><div><h4>Unverified</h4>${li(ex.unverified)}</div><div><h4>Missing commercial information</h4>${li(ex.missing)}</div></div><p class="caption"><b>Opportunity framing:</b> ${fr.primary?esc('Primary — '+fr.primary)+' ':''}${esc(fr.secondary)}</p><p class="caption"><b>Next step:</b> ${esc(ex.next)}</p><p class="caption"><b>InkBridge specialist:</b> ${esc(ex.specialist)}</p>`;}
 const opts=(labels,v)=>Object.entries(labels).map(([k,l])=>`<option value="${k}" ${k===v?'selected':''}>${esc(l)}</option>`).join('');
 function renderWorkflow(a,plan){
- const o=getO(a.id),act=nextAction(o),unk=outcomeUnknowns(o),touched=o.radius!=='unknown'||o.need!=='unknown'||o.ownership!=='unknown'||o.notes||o.openQuestions,brief=handoffs.get(a.id);
+ const o=getO(a.id),act=nextAction(o),unk=outcomeUnknowns(o),touched=JSON.stringify({...o,demo:false})!==JSON.stringify(EMPTY_OUTCOME)||o.demo,brief=handoffs.get(a.id);
  const steps=[['wf-research','Research',true],['wf-discovery','Discovery',true],['wf-outcome','Outcome',!!touched],['wf-handoff','Handoff',!!brief]];
  const cur=brief?3:touched?3:2;
  const hint=brief?'Handoff brief ready — review and copy it.':touched?'Next: generate the handoff brief.':'Next: run discovery, then record what the prospect told you.';
@@ -62,12 +64,17 @@ function renderWorkflow(a,plan){
  <div class="wf-fields"><label class="field">RADIUS deployment<select data-f="radius">${opts(RADIUS_LABELS,o.radius)}</select></label><label class="field">Identified technical need<select data-f="need">${opts(NEED_LABELS,o.need)}</select></label><label class="field">Infrastructure ownership<select data-f="ownership">${opts(OWNERSHIP_LABELS,o.ownership)}</select></label></div>
  <label class="field">Stated architecture or operational requirements<textarea data-f="notes" rows="3" placeholder="What the prospect described…">${esc(o.notes)}</textarea></label>
  <label class="field">Open technical questions for follow-up (one per line)<textarea data-f="openQuestions" rows="2" placeholder="Questions for InkBridge engineering…">${esc(o.openQuestions)}</textarea></label>
- <div class="wf-action act-${act.key}" id="wfAction"><div class="eyebrow">Suggested next action</div><strong>${act.key}. ${esc(ACTIONS[act.key].title)}</strong><p class="caption">${esc(ACTIONS[act.key].summary)}</p><ul>${act.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>${unk.length?`<p class="caption"><span class="lbl unk">Unknown</span> ${unk.map(esc).join(' · ')}</p>`:''}</div></div>
+ <div class="eyebrow wf-sub">Commercial qualification · prospect-reported</div><p class="caption">Leave as "Not established" unless the prospect said it. Never enter assumed budgets or authority.</p>
+ <div class="wf-fields"><label class="field">Current support arrangements<select data-f="support">${opts(SUPPORT_LABELS,o.support)}</select></label><label class="field">Urgency or active initiative<select data-f="urgency">${opts(URGENCY_LABELS,o.urgency)}</select></label><label class="field">Budget status (no amounts)<select data-f="budget">${opts(BUDGET_LABELS,o.budget)}</select></label><label class="field">Decision-maker &amp; purchasing process<select data-f="decision">${opts(DECISION_LABELS,o.decision)}</select></label></div>
+ <label class="field">Operational or business impact<textarea data-f="impact" rows="2" placeholder="Not established">${esc(o.impact)}</textarea></label>
+ <label class="field">Decision process details (as described)<textarea data-f="decisionNotes" rows="2" placeholder="Not established">${esc(o.decisionNotes)}</textarea></label>
+ <div class="wf-fields wf-two"><label class="field">Relevant stakeholders<textarea data-f="stakeholders" rows="2" placeholder="Not established">${esc(o.stakeholders)}</textarea></label><label class="field">Next agreed action<textarea data-f="agreedNext" rows="2" placeholder="Not established">${esc(o.agreedNext)}</textarea></label></div>
+ <div class="wf-action act-${act.key}" id="wfAction">${actionHtml(o)}</div></div>
  <div class="panel" id="wf-handoff"><div class="eyebrow">Technical handoff brief</div><p class="caption">For a BDR handing off to an account executive or technical specialist.</p><button class="button primary" id="genBrief">Generate Handoff Brief</button>${brief?`<div class="messaging" id="briefText">${esc(brief)}</div><button class="button" id="copyBrief">▣ Copy Brief</button>`:''}</div>`;
  const save=n=>{outcomes.set(a.id,n);};
  const invalidate=()=>{box.querySelector('#briefText')?.remove();box.querySelector('#copyBrief')?.remove();if(!box.querySelector('#briefStale'))box.querySelector('#genBrief').insertAdjacentHTML('afterend','<p class="caption" id="briefStale"><span class="lbl unk">Out of date</span> Discovery inputs changed — regenerate the brief.</p>');const h=document.querySelector('#wfSteps button[data-go="wf-handoff"]');if(h){h.classList.remove('done');h.querySelector('span').textContent='4';}};
  box.querySelectorAll('select[data-f]').forEach(el=>el.addEventListener('change',()=>{save({...getO(a.id),[el.dataset.f]:el.value});handoffs.delete(a.id);renderWorkflow(a,plan);}));
- box.querySelectorAll('textarea[data-f]').forEach(el=>el.addEventListener('input',()=>{save({...getO(a.id),[el.dataset.f]:el.value});if(handoffs.has(a.id)){handoffs.delete(a.id);invalidate();}}));
+ box.querySelectorAll('textarea[data-f]').forEach(el=>el.addEventListener('input',()=>{save({...getO(a.id),[el.dataset.f]:el.value});box.querySelector('#wfAction').innerHTML=actionHtml(getO(a.id));if(handoffs.has(a.id)){handoffs.delete(a.id);invalidate();}}));
  box.querySelector('#demoBtn').addEventListener('click',()=>{save({...DEMO_OUTCOME});handoffs.delete(a.id);renderWorkflow(a,plan);});
  box.querySelector('#resetBtn').addEventListener('click',()=>{outcomes.delete(a.id);handoffs.delete(a.id);renderWorkflow(a,plan);});
  box.querySelector('#genBrief').addEventListener('click',()=>{handoffs.set(a.id,buildHandoff(a.name,plan,getO(a.id)));renderWorkflow(a,plan);document.getElementById('wf-handoff').scrollIntoView({behavior:'smooth',block:'start'});});
