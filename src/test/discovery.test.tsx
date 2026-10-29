@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildPlan, datasetMetrics } from "@/lib/discovery";
-import { PERSONAS, type Persona } from "@/lib/discovery-data";
+import { buildPlan, datasetMetrics, discoveryPlanCount, snapshotFor } from "@/lib/discovery";
+import { DISCOVERY_ANGLE, NO_AAA_OBJECTIVE, PERSONAS, type Persona } from "@/lib/discovery-data";
 import { ACCOUNTS, SIGNALS } from "@/lib/isp-data";
 
 const personas = Object.keys(PERSONAS) as Persona[];
@@ -60,5 +60,28 @@ describe("discovery plans", () => {
 
   it("default weights are preserved", () => {
     expect(Object.fromEntries(Object.entries(SIGNALS).map(([k, v]: any) => [k, v.weight]))).toEqual({ expansion: 25, multimarket: 20, resilience: 20, mixed: 15, scale: 20 });
+  });
+
+  it("snapshot signal is the evidence cited by question 1 of the same account", () => {
+    for (const a of ACCOUNTS) for (const p of personas) {
+      const plan = buildPlan(a.id, p), snap = snapshotFor(plan);
+      expect(snap.signal.id).toBe(plan.questions[0]!.evidenceId);
+      expect(snap.signal.accountId).toBe(a.id);
+    }
+  });
+
+  it("Beanfield's objective is to establish relevance, not pitch", () => {
+    expect(snapshotFor(buildPlan("beanfield", "CTO / VP Technology")).objective).toBe(NO_AAA_OBJECTIVE);
+    expect(DISCOVERY_ANGLE.beanfield).toBe("Establish AAA relevance");
+  });
+
+  it("plan count is built from real plans (5 accounts x 3 stakeholders = 15)", () => {
+    expect(discoveryPlanCount(ACCOUNTS)).toBe(15);
+    expect(discoveryPlanCount([{ id: "unknown-isp" }])).toBe(0);
+  });
+
+  it("every account has a discovery angle and persona focus uses the agreed wording", () => {
+    for (const a of ACCOUNTS) expect(DISCOVERY_ANGLE[a.id]).toBeTruthy();
+    expect(PERSONAS["NOC / Infrastructure"]).toBe("Focus on availability, incident response, monitoring, recovery, and operational ownership.");
   });
 });
