@@ -65,14 +65,14 @@ describe("discovery plans", () => {
   it("snapshot signal is the evidence cited by question 1 of the same account", () => {
     for (const a of ACCOUNTS) for (const p of personas) {
       const plan = buildPlan(a.id, p), snap = snapshotFor(plan);
-      expect(snap.signal.id).toBe(plan.questions[0]!.evidenceId);
-      expect(snap.signal.accountId).toBe(a.id);
+      expect(snap.signal?.id).toBe(plan.questions[0]!.evidenceId);
+      expect(snap.signal?.accountId).toBe(a.id);
     }
   });
 
   it("Beanfield's objective is to establish relevance, not pitch", () => {
     expect(snapshotFor(buildPlan("beanfield", "CTO / VP Technology")).objective).toBe(NO_AAA_OBJECTIVE);
-    expect(DISCOVERY_ANGLE.beanfield).toBe("Establish AAA relevance");
+    expect(DISCOVERY_ANGLE["beanfield"]).toBe("Establish AAA relevance");
   });
 
   it("plan count is built from real plans (5 accounts x 3 stakeholders = 15)", () => {
