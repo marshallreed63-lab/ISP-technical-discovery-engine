@@ -67,9 +67,9 @@ export interface Concept {
 }
 
 export const PERSONAS: Record<Persona, string> = {
-  "Network Engineering": "Architecture, integrations, protocols, dependencies and scalability.",
-  "NOC / Infrastructure": "Availability, monitoring, incident triage, recovery, ownership and support models.",
-  "CTO / VP Technology": "Architecture strategy, standardization, operational risk, resourcing and the case for specialist expertise.",
+  "Network Engineering": "Focus on architecture, protocols, integrations, dependencies, and scaling.",
+  "NOC / Infrastructure": "Focus on availability, incident response, monitoring, recovery, and operational ownership.",
+  "CTO / VP Technology": "Focus on infrastructure strategy, risk, standardization, and engineering capacity.",
 };
 
 export const SERVICES: Record<string, Service> = {
@@ -301,3 +301,26 @@ export const HEROTEL_NOTE = {
   text: "InkBridge has addressed similar categories of authentication complexity — consolidation of many legacy environments, reconnection after outages, geographic failover — in a published customer engagement. This demonstrates engineering capability, not proof that this prospect has the same problem.",
   url: "https://www.inkbridgenetworks.com/blog/case-studies-12/herotel-isp-authentication-201",
 };
+
+// ---- Display-only labels (no new claims) ----
+/** Short shortlist label summarising each account's existing lead hypothesis. Not a score. */
+export const DISCOVERY_ANGLE: Record<string, string> = {
+  citywest: "Network resilience",
+  xplore: "Multi-technology subscriber provisioning",
+  sonic: "New-market network activation",
+  beanfield: "Establish AAA relevance",
+  altafiber: "Subscriber activation and fibre expansion",
+};
+
+/** Evidence-quality caveats shown in the workspace and Methodology. Scores are unchanged. */
+export const EVIDENCE_NOTES: Record<string, string> = {
+  beanfield: "Resilience signal is supported only by undated marketing descriptions of meshed redundancy and a 24/7 NOC. There is no dated resilience event; treat it as weak.",
+};
+
+export const STEP_LABELS: Record<Depth, string> = {
+  opening: "Step 1 · Open the conversation",
+  architecture: "Step 2 · Understand the architecture or operating environment",
+  qualification: "Step 3 · Qualify technical relevance and possible next steps",
+};
+
+export const NO_AAA_OBJECTIVE = "Establish whether AAA/RADIUS is relevant at all, before discussing any solution.";
