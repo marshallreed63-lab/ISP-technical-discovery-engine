@@ -1,5 +1,7 @@
 # Enterprise interface review
 
+> The initial styling pass below is superseded by the structural revision documented in [VISUAL_FIDELITY.md](docs/VISUAL_FIDELITY.md). The current revision passes 58 tests and the production build. Literal original-reference composite verification remains pending access to the original image file.
+
 Branch: `design/enterprise-discovery-workspace`
 
 The Stitch references inform the dark surfaces, restrained purple actions, compact research grid, account inspector, and paired discovery workspace. Existing React mounting, styling entry point, and interaction controller remain in use.

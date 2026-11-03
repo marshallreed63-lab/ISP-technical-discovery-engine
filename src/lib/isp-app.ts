@@ -1,5 +1,6 @@
 // @ts-nocheck
 // Original imperative app logic; initIspApp runs once the markup is mounted.
+import { icon } from "./workspace-shell";
 import { SIGNALS, ACCOUNTS } from "./isp-data";
 import {
   PERSONAS,
@@ -43,7 +44,9 @@ export function initIspApp() {
     filter = "",
     region = "all",
     minimum = 0,
-    view = "research";
+    view = "research",
+    sourceFilter = "all",
+    activeStage = "research";
   const openDetails = new Set();
   const outcomes = new Map(),
     handoffs = new Map();
@@ -67,24 +70,64 @@ export function initIspApp() {
         (a) =>
           (region === "all" || a.region === region) &&
           (a.name + " " + a.location).toLowerCase().includes(filter.toLowerCase()) &&
-          score(a) >= minimum,
+          score(a) >= minimum &&
+          (sourceFilter === "all" ||
+            (sourceFilter === "reviewed"
+              ? evidenceFor(a.id).every((e) => e.verification === "Source reviewed")
+              : evidenceFor(a.id).some((e) => e.verification !== "Source reviewed"))),
       )
       .sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name));
-  function setView(v) {
-    view = v;
-    const navV = v === "account" ? "research" : v;
+  function syncChrome(stage) {
+    activeStage = stage;
+    document.querySelectorAll("[data-stage]").forEach((b) => {
+      const active = b.dataset.stage === stage && (view === "research" || view === "account");
+      b.classList.toggle("active", active);
+      if (active) b.setAttribute("aria-current", b.closest("#stageNav") ? "step" : "page");
+      else b.removeAttribute("aria-current");
+    });
     document
       .querySelectorAll("#nav button")
-      .forEach((b) => b.classList.toggle("active", b.dataset.view === navV));
-    document.getElementById("topline").classList.toggle("hidden", v === "account");
+      .forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+  }
+  function setView(v) {
+    view = v;
     document
       .querySelectorAll("main > section")
       .forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + v));
+    syncChrome(v === "research" ? "research" : activeStage);
+  }
+  function navigateStage(stage) {
+    if (stage === "research") {
+      setView("research");
+      return;
+    }
+    if (view !== "account") choose(selected);
+    syncChrome(stage);
+    const target = { discovery: "wf-discovery", outcome: "wf-outcome", handoff: "wf-handoff" }[
+      stage
+    ];
+    document.getElementById(target)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }
   function renderMetrics() {
     const m = datasetMetrics(ACCOUNTS);
-    document.getElementById("metrics").innerHTML =
-      `<div class="panel metric"><div class="label">Publicly researched accounts</div><strong>${m.accounts}</strong><small>${m.evidenceRecords} linked evidence records</small></div><div class="panel metric"><div class="label">Countries covered</div><strong>${m.regions.length}</strong><small>${esc(m.regions.join(" and "))}</small></div><div class="panel metric"><div class="label">Accounts with ${m.latestYear ?? "recent"} signals</div><strong>${m.accountsWithLatestYear}</strong><small>Dated public evidence from ${m.latestYear ?? "—"}</small></div><div class="panel metric"><div class="label">Technical discovery plans</div><strong>${discoveryPlanCount(ACCOUNTS)}</strong><small>Account × stakeholder plans · FreeRADIUS not verified</small></div>`;
+    const metrics = [
+      ["Public Accounts", m.accounts, `${m.evidenceRecords} linked records`, "building"],
+      ["Territories Covered", m.regions.length, "CA · US", "globe"],
+      [
+        `${m.latestYear ?? "Recent"} Expansion Signals`,
+        m.accountsWithLatestYear,
+        "Dated public evidence",
+        "signal",
+      ],
+      ["Stakeholder Plans", discoveryPlanCount(ACCOUNTS), "Three buyer personas", "discovery"],
+      ["Verified FreeRADIUS Stacks", m.verifiedFreeRadius, "Requires discovery", "outcome"],
+    ];
+    document.getElementById("metrics").innerHTML = metrics
+      .map(
+        ([label, value, note, glyph]) =>
+          `<div class="metric"><div class="metric-label">${label}${icon(glyph)}</div><div class="metric-value"><strong>${value}</strong><span>${note}</span></div></div>`,
+      )
+      .join("");
   }
   function tags(a) {
     return a.signals.map((k) => `<span>${SIGNALS[k].label}</span>`).join("");
@@ -98,10 +141,14 @@ export function initIspApp() {
       rows
         .map((a) => {
           let s = score(a);
-          return `<tr data-id="${esc(a.id)}" class="${selected === a.id ? "selected" : ""}" aria-selected="${selected === a.id}" tabindex="0" aria-label="Inspect ${esc(a.name)}"><td><b>${esc(a.name)}</b><span class="sub">${esc(a.location)}</span>${DISCOVERY_ANGLE[a.id] ? `<span class="angle">Angle: ${esc(DISCOVERY_ANGLE[a.id])}</span>` : ""}</td><td><div class="signal-tags">${tags(a)}</div></td><td><div class="barrow"><div class="scorebar"><span style="width:${s}%"></span></div><span class="score-num">${s}</span></div><span class="sub">${tier(s)} · heuristic</span></td><td><button class="button small" data-open="${esc(a.id)}">Open plan →</button></td></tr>`;
+          const evidence = evidenceFor(a.id),
+            reviewed = evidence.every((e) => e.verification === "Source reviewed");
+          return `<tr data-id="${esc(a.id)}" class="${selected === a.id ? "selected" : ""}" aria-selected="${selected === a.id}" tabindex="0" aria-label="Inspect ${esc(a.name)}"><td><div class="account-name"><b>${esc(a.name)}</b>${selected === a.id ? '<span class="focused-tag">Focused</span>' : ""}</div><span class="sub">${esc(a.location)} · ${esc(DISCOVERY_ANGLE[a.id] ?? a.sector)}</span></td><td><div class="signal-tags">${tags(a)}</div></td><td><span class="evidence-state ${reviewed ? "reviewed" : "needs-review"}"><span class="status-dot"></span>${reviewed ? "Source reviewed" : "Review required"}</span></td><td><div class="barrow"><span class="score-num">${s}</span><div class="scorebar"><span style="width:${s}%"></span></div></div></td><td><button class="button small ${selected === a.id ? "primary" : ""}" data-open="${esc(a.id)}" aria-label="Open ${esc(a.name)} discovery plan">${selected === a.id ? "Inspect" : "View plan"}${icon("arrow")}</button></td></tr>`;
         })
         .join("") ||
-      `<tr><td colspan="4" class="empty">No accounts match this filter. Try another threshold or region.</td></tr>`;
+      `<tr><td colspan="5" class="empty">No accounts match this filter. Try another threshold or region.</td></tr>`;
+    document.getElementById("tableCount").textContent =
+      `Displaying ${rows.length} of ${ACCOUNTS.length} accounts`;
     document.querySelectorAll("#accountsTable tr[data-id]").forEach((row) => {
       row.addEventListener("click", (e) => {
         if (e.target.closest("[data-open]")) choose(row.dataset.id);
@@ -134,6 +181,7 @@ export function initIspApp() {
     renderTable();
     renderInspector();
     renderDetail();
+    activeStage = "discovery";
     setView("account");
     window.scrollTo(0, 0);
   }
@@ -141,8 +189,29 @@ export function initIspApp() {
     const a = ACCOUNTS.find((x) => x.id === selected),
       el = document.getElementById("accountInspector");
     const evidence = evidenceFor(a.id);
-    el.innerHTML = `<div class="inspector-heading"><span class="eyebrow">Account inspector</span><span class="lbl unk">Research only</span></div><h2 class="detail-title">${esc(a.name)}</h2><p class="detail-loc">${esc(a.location)}</p><div class="detail-score"><div><span class="caption">Research Priority</span><br><strong>${score(a)}<span class="sub"> / 100</span></strong></div><div><span class="caption">FreeRADIUS deployment</span><br><span class="lbl unk">Not verified</span></div></div><button class="button primary inspector-open">Open discovery workspace →</button><h3 class="rail-title">Public evidence <span>${evidence.length} sources</span></h3>${evidence.map((e) => `<div class="source"><span class="lbl ${e.verification === "Source reviewed" ? "fact" : "unk"}">${esc(e.verification)}</span><p>${esc(e.fact)}</p><a href="${esc(e.url)}" target="_blank" rel="noopener noreferrer">${esc(e.sourceTitle)} ↗</a><div class="date">${esc(e.date)}</div><p class="caption">${esc(e.limitation)}</p></div>`).join("")}<div class="inspector-note"><span class="lbl hypo">Hypothesis · unverified</span><p>${esc(a.hypothesis)}</p></div>`;
+    const evidenceNode = (e) =>
+      `<article class="evidence-node"><div class="evidence-node-head">${icon(e.verification === "Source reviewed" ? "outcome" : "book")}<a href="${esc(e.url)}" target="_blank" rel="noopener noreferrer">${esc(e.sourceTitle)} ↗</a><span class="date">${esc(e.date)}</span></div><p class="evidence-preview">${esc(e.fact)}</p><div class="node-source"><span class="lbl ${e.verification === "Source reviewed" ? "fact" : "unk"}">${esc(e.verification)}</span><span>${esc(e.publisher)}</span></div><details><summary>Full evidence &amp; limitation</summary><p>${esc(e.fact)}</p><p class="caption"><strong>Limitation:</strong> ${esc(e.limitation)}</p></details></article>`;
+    el.innerHTML = `<div class="inspector-heading"><div><h2 class="detail-title">${esc(a.name)}</h2><p class="detail-loc">${esc(a.location)}</p></div><button class="icon-button inspector-expand" aria-label="Open ${esc(a.name)} discovery workspace">↗</button></div>
+    <div class="inspector-summary"><div><span>Research Priority</span><strong>${score(a)}<small> / 100 · heuristic</small></strong></div><div><span>RADIUS deployment</span><strong class="gold">Not verified</strong></div></div>
+    <button class="button primary inspector-open">${icon("discovery")}Open Technical Discovery Plan</button>
+    <section class="inspector-evidence"><h3 class="rail-title">Public evidence nodes<span>${evidence.length} sources</span></h3>${evidence.slice(0, 2).map(evidenceNode).join("")}${evidence.length > 2 ? `<details class="additional-evidence"><summary>Additional evidence (${evidence.length - 2})</summary>${evidence.slice(2).map(evidenceNode).join("")}</details>` : ""}</section>
+    <section class="inspector-personas"><h3 class="rail-title">Technical buyer personas<span>3 roles</span></h3><p class="caption persona-caution">Conversation lenses · no named contacts verified</p>${Object.entries(
+      PERSONAS,
+    )
+      .map(
+        ([name, focus], i) =>
+          `<button class="stakeholder-row" data-inspector-role="${esc(name)}"><span class="persona-monogram">${["NE", "NO", "CT"][i]}</span><span><strong>${esc(name)}</strong><span class="persona-description">${esc(focus)}</span></span>${icon("arrow")}</button>`,
+      )
+      .join("")}</section>
+    <section class="inspector-note"><h3>Discovery hypothesis <span class="lbl hypo">Unverified</span></h3><p class="hypothesis-preview">${esc(a.hypothesis)}</p><details><summary>Full hypothesis · unverified</summary><p>${esc(a.hypothesis)}</p></details></section>`;
     el.querySelector(".inspector-open").addEventListener("click", () => choose(a.id));
+    el.querySelector(".inspector-expand").addEventListener("click", () => choose(a.id));
+    el.querySelectorAll("[data-inspector-role]").forEach((b) =>
+      b.addEventListener("click", () => {
+        role = b.dataset.inspectorRole;
+        choose(a.id);
+      }),
+    );
   }
 
   const sigLabel = (k) => SIGNALS[k]?.label ?? k;
@@ -188,21 +257,21 @@ export function initIspApp() {
       ? `<div class="callout warning"><strong>Evidence note:</strong> ${esc(EVIDENCE_NOTES[a.id])}</div>`
       : "";
     const sig = snap.signal;
-    detail.innerHTML = `<button class="button ghost small" id="backBtn">← Back to shortlist</button>
+    detail.innerHTML = `<div class="account-breadcrumb"><button class="text-button" id="backBtn">Research</button><span>›</span><span>${esc(a.name)}</span><span>›</span><span>Technical Discovery &amp; Discovery Plan</span></div>
  <div class="ws-head"><div><h2 class="detail-title">${esc(a.name)}</h2><p class="detail-loc">${esc(a.location)} · ${esc(a.sector)} · latest evidence ${esc(latest?.date ?? "—")} · FreeRADIUS deployment: <b>not verified</b></p></div><div class="ws-score"><span class="caption">Research Priority</span><strong>${s}<span> / 100</span></strong><span class="pill ${s >= 60 ? "" : s >= 40 ? "mid" : "low"}">${tier(s)}</span><span class="caption">Not technical fit or purchase probability</span></div></div>
  <nav class="wf-steps" id="wfSteps" aria-label="Account workflow"></nav>
-  <div class="persona" id="wf-research"><div class="seg" role="group" aria-label="Technical stakeholder">${Object.keys(
-    PERSONAS,
-  )
-    .map(
-      (r) =>
-        `<button data-role="${esc(r)}" aria-pressed="${r === role}" class="${r === role ? "on" : ""}">${esc(r)}</button>`,
-    )
-    .join("")}</div><p class="caption" id="personaFocus">${esc(PERSONAS[role])}</p></div>
- <div class="snap"><div class="snap-cell"><div class="eyebrow">Public signal</div><p>${esc(sig.fact)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(sig.url)}">${esc(sig.sourceTitle)} ↗</a><span class="sub"> · ${esc(sig.date)} · ${sig.verification === "Source reviewed" ? "Source reviewed" : "Source requires verification"}</span></div><div class="snap-cell"><div class="eyebrow">Technical hypothesis <span class="lbl hypo">Unverified</span></div><p>${snap.hypothesis ? esc(snap.hypothesis) : "No AAA-specific hypothesis is supported."}</p>${snap.supportingEvidence.length ? `<p class="caption"><b>Additional context (not proof of AAA need):</b></p>${snap.supportingEvidence.map((e) => `<span class="snap-source"><a target="_blank" rel="noopener noreferrer" href="${esc(e.url)}">${esc(e.sourceTitle)} ↗</a><span class="sub">${esc(e.date)} · ${e.verification === "Source reviewed" ? "Source reviewed" : "Source requires verification"}</span></span>`).join("")}` : ""}</div><div class="snap-cell"><div class="eyebrow">Discovery objective</div><p>${esc(snap.objective)}</p></div></div>
- <div class="live-workspace"><div class="ws-grid" id="wf-discovery"><div class="panel"><div class="eyebrow">Discovery conversation plan</div><h3 class="conversation-title">${esc(role)}</h3><ol class="dq-list">${qs}</ol></div>
- <div class="panel ws-side"><div class="eyebrow">Source-backed evidence</div>${note}${evCards}</div></div>
- <div id="wfBox"></div></div>
+ <div class="live-workspace"><div class="ws-grid" id="wf-discovery"><section class="panel conversation-panel"><div class="panel-title">${icon("discovery")}Discovery conversation plan</div>  <div class="persona" id="wf-research"><span class="persona-label">Target stakeholder persona</span><div class="seg" role="group" aria-label="Technical stakeholder">${Object.keys(
+   PERSONAS,
+ )
+   .map(
+     (r) =>
+       `<button data-role="${esc(r)}" aria-pressed="${r === role}" class="${r === role ? "on" : ""}">${esc(r)}</button>`,
+   )
+   .join("")}</div><p class="caption" id="personaFocus">${esc(PERSONAS[role])}</p></div>
+<ol class="dq-list">${qs}</ol></section>
+ <section class="panel ws-side"><div class="panel-title">Source-backed evidence</div>${note}${evCards}</section></div>
+ <div id="wfBox"></div></div><details class="research-context"><summary>Account research context · evidence, hypothesis &amp; discovery objective</summary> <div class="snap"><div class="snap-cell"><div class="eyebrow">Public evidence · source-linked</div><p>${esc(sig.fact)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(sig.url)}">${esc(sig.sourceTitle)} ↗</a><span class="sub"> · ${esc(sig.date)} · ${sig.verification === "Source reviewed" ? "Source reviewed" : "Source requires verification"}</span></div><div class="snap-cell"><div class="eyebrow">Technical hypothesis <span class="lbl hypo">Unverified</span></div><p>${snap.hypothesis ? esc(snap.hypothesis) : "No AAA-specific hypothesis is supported."}</p>${snap.supportingEvidence.length ? `<p class="caption"><b>Additional context (not proof of AAA need):</b></p>${snap.supportingEvidence.map((e) => `<span class="snap-source"><a target="_blank" rel="noopener noreferrer" href="${esc(e.url)}">${esc(e.sourceTitle)} ↗</a><span class="sub">${esc(e.date)} · ${e.verification === "Source reviewed" ? "Source reviewed" : "Source requires verification"}</span></span>`).join("")}` : ""}</div><div class="snap-cell"><div class="eyebrow">Discovery objective</div><p>${esc(snap.objective)}</p></div></div>
+</details>
  <div class="panel">${det("hyp-" + a.id, `Technical opportunities to investigate (${plan.challenges.length})`, hyp)}<div class="divider"></div>${det("unknowns-" + a.id, `<span class="lbl unk">Unknown</span> Still to learn (${plan.unknowns.length})`, `<ul>${plan.unknowns.map((u) => `<li>${esc(u)}</li>`).join("")}</ul>`)}</div>
  <div class="panel"><div class="eyebrow">Potential InkBridge relevance · conditional, only if discovery confirms · confidence: ${esc(plan.confidence)}</div>${svc}<div class="divider"></div>${det("herotel-" + a.id, "Reference case study: published InkBridge engagement (Herotel)", `<p class="caption">${esc(HEROTEL_NOTE.text)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(HEROTEL_NOTE.url)}">Read the case study ↗</a>`)}</div>
  <div class="panel"><div class="eyebrow">Draft opener · simulated prospecting example · requires human review</div><div class="messaging" id="draft">${esc(plan.opener)}</div><p class="caption">Draft for internal review only. Not sent by or on behalf of InkBridge Networks.</p><button class="button" id="copyDraft">▣ Copy opener</button></div>`;
@@ -261,21 +330,14 @@ export function initIspApp() {
       ["wf-handoff", "Handoff", progress.handoff],
     ];
     document.getElementById("wfSteps").innerHTML =
-      steps
-        .map(
-          ([id, l, done], i) =>
-            `<button data-go="${id}" class="${i === progress.current ? "cur" : ""} ${done ? "done" : ""}" ${i === progress.current ? 'aria-current="step"' : ""}><span>${done ? "✓" : i + 1}</span>${l}</button>`,
-        )
-        .join("<i>→</i>") + `<p class="caption">${esc(progress.hint)}</p>`;
-    document
-      .querySelectorAll("#wfSteps button")
-      .forEach((b) =>
-        b.addEventListener("click", () =>
-          document
-            .getElementById(b.dataset.go)
-            ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-        ),
+      `<p class="caption">${icon("info")}${esc(progress.hint)}</p><span class="completion-summary">${steps.filter((x) => x[2]).length} / 4 stages with recorded progress</span>`;
+    steps.forEach(([id, label, done], i) => {
+      const button = document.querySelector(
+        `#stageNav button[data-stage="${label.toLowerCase()}"]`,
       );
+      button?.classList.toggle("done", !!done);
+      button?.setAttribute("title", `${label}: ${done ? "recorded progress" : "not complete"}`);
+    });
   }
   function renderWorkflow(a, plan) {
     const o = getO(a.id),
@@ -283,18 +345,18 @@ export function initIspApp() {
       brief = handoffs.get(a.id);
     renderProgress(a);
     const box = document.getElementById("wfBox");
-    box.innerHTML = `<div class="panel wf-outcome" id="wf-outcome"><div class="wf-head"><div><div class="eyebrow">Technical discovery outcome · prospect-reported</div><p class="caption">Record what the prospect told you. Kept only in this browser tab; never merged with public evidence above.</p></div><div class="wf-btns"><button class="button small" id="demoBtn">Load demo inputs</button><button class="button ghost small" id="resetBtn">Reset</button></div></div>
+    box.innerHTML = `<div class="panel wf-outcome" id="wf-outcome"><div class="wf-head"><div><div class="panel-title">${icon("outcome")}Technical discovery outcome <span>Prospect-reported</span></div><p class="caption">Record what the prospect told you. Kept only in this browser tab; never merged with public evidence above.</p></div><div class="wf-btns"><button class="button small" id="demoBtn">Load demo inputs</button><button class="button ghost small" id="resetBtn">Reset</button></div></div>
  ${o.demo ? '<div class="callout warning"><strong>Demonstration mode:</strong> fictional inputs. Not information about the real ' + esc(a.name) + ".</div>" : ""}
  <div class="wf-fields"><label class="field">RADIUS deployment<select data-f="radius">${opts(RADIUS_LABELS, o.radius)}</select></label><label class="field">Identified technical need<select data-f="need">${opts(NEED_LABELS, o.need)}</select></label><label class="field">Infrastructure ownership<select data-f="ownership">${opts(OWNERSHIP_LABELS, o.ownership)}</select></label></div>
  <label class="field">Stated architecture or operational requirements<textarea data-f="notes" rows="3" placeholder="What the prospect described…">${esc(o.notes)}</textarea></label>
  <label class="field">Open technical questions for follow-up (one per line)<textarea data-f="openQuestions" rows="2" placeholder="Questions for InkBridge engineering…">${esc(o.openQuestions)}</textarea></label>
- <div class="eyebrow wf-sub">Commercial qualification · prospect-reported</div><p class="caption">Leave as "Not established" unless the prospect said it. Never enter assumed budgets or authority.</p>
+ <div class="panel-title wf-sub">${icon("building")}Commercial qualification <span>Prospect-reported</span></div><p class="caption">Leave as "Not established" unless the prospect said it. Never enter assumed budgets or authority.</p>
  <div class="wf-fields"><label class="field">Current support arrangements<select data-f="support">${opts(SUPPORT_LABELS, o.support)}</select></label><label class="field">Urgency or active initiative<select data-f="urgency">${opts(URGENCY_LABELS, o.urgency)}</select></label><label class="field">Budget status (no amounts)<select data-f="budget">${opts(BUDGET_LABELS, o.budget)}</select></label><label class="field">Decision-maker &amp; purchasing process<select data-f="decision">${opts(DECISION_LABELS, o.decision)}</select></label></div>
  <label class="field">Operational or business impact<textarea data-f="impact" rows="2" placeholder="Not established">${esc(o.impact)}</textarea></label>
  <label class="field">Decision process details (as described)<textarea data-f="decisionNotes" rows="2" placeholder="Not established">${esc(o.decisionNotes)}</textarea></label>
  <div class="wf-fields wf-two"><label class="field">Relevant stakeholders<textarea data-f="stakeholders" rows="2" placeholder="Not established">${esc(o.stakeholders)}</textarea></label><label class="field">Next agreed action<textarea data-f="agreedNext" rows="2" placeholder="Not established">${esc(o.agreedNext)}</textarea></label></div>
  <div class="wf-action act-${act.key}" id="wfAction">${actionHtml(o)}</div></div>
- <div class="panel" id="wf-handoff"><div class="eyebrow">Technical handoff brief</div><p class="caption">Without discovery findings, the document is a pre-call research summary, not a completed handoff. Commercial details may remain unknown.</p><button class="button primary" id="genBrief">Generate Handoff Brief</button>${brief ? `<div class="messaging" id="briefText">${esc(brief)}</div><button class="button" id="copyBrief">▣ Copy Brief</button>` : ""}</div>`;
+ <div class="panel" id="wf-handoff"><div class="panel-title">${icon("handoff")}Technical handoff brief</div><p class="caption">Without discovery findings, the document is a pre-call research summary, not a completed handoff. Commercial details may remain unknown.</p><button class="button primary" id="genBrief">Generate Handoff Brief</button>${brief ? `<div class="messaging" id="briefText">${esc(brief)}</div><button class="button" id="copyBrief">▣ Copy Brief</button>` : ""}</div>`;
     const save = (n) => {
       outcomes.set(a.id, n);
     };
@@ -363,7 +425,7 @@ export function initIspApp() {
     let n = document.createElement("div");
     n.textContent = t;
     n.style.cssText =
-      "position:fixed;right:20px;bottom:20px;background:#60dbc8;color:#0d2129;border-radius:10px;padding:12px 16px;font-weight:800;z-index:999";
+      "position:fixed;right:20px;bottom:20px;background:#c4bbff;color:#171226;border-radius:6px;padding:12px 16px;font-weight:800;z-index:999";
     document.body.appendChild(n);
     setTimeout(() => n.remove(), 2300);
   }
@@ -438,6 +500,25 @@ export function initIspApp() {
   document
     .querySelectorAll("#nav button")
     .forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+  document
+    .querySelectorAll("[data-stage]")
+    .forEach((b) => b.addEventListener("click", () => navigateStage(b.dataset.stage)));
+  document.querySelector(".shell").addEventListener("keydown", (e) => {
+    if (e.key === "/" && !e.target.closest('input,textarea,select,[contenteditable="true"]')) {
+      e.preventDefault();
+      setView("research");
+      document.getElementById("search").focus();
+    }
+  });
+  document.getElementById("globalSearch").addEventListener("click", () => {
+    setView("research");
+    document.getElementById("search").focus();
+  });
+  document.getElementById("researchGuide").addEventListener("click", () => setView("methodology"));
+  document.getElementById("evidenceFilter").addEventListener("change", (e) => {
+    sourceFilter = e.target.value;
+    renderTable();
+  });
   document.getElementById("search").addEventListener("input", (e) => {
     filter = e.target.value;
     renderTable();
