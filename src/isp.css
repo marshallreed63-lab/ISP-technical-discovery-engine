@@ -2328,3 +2328,69 @@ summary {
 .inspector-note details p {
   margin-top: 6px;
 }
+
+/* Match the reference's desktop reading scale without changing research content. */
+@media (min-width: 1201px) {
+  .nav button {
+    font-size: 15px;
+    line-height: 1.25;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .nav button.active {
+    font-size: 20px;
+  }
+  .nav-label {
+    font-size: 14px;
+  }
+  .library-label {
+    margin-top: 28px;
+  }
+  .header-crumbs {
+    font-size: 15px;
+  }
+  .phase-label,
+  #stageNav button {
+    font-size: 13px;
+  }
+  .metric-label {
+    font-size: 13px;
+  }
+  .metric-value > span {
+    font-size: 12px;
+  }
+  .tbl th {
+    font-size: 13px;
+  }
+  .tbl b {
+    font-size: 18px;
+  }
+  .tbl .sub {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .signal-tags span,
+  .evidence-state {
+    font-size: 13px;
+  }
+  .tbl .button.small {
+    font-size: 12px;
+  }
+  .table-footer {
+    font-size: 12px;
+  }
+  .inspector .detail-loc {
+    font-size: 14px;
+  }
+  .inspector-summary > div > span {
+    font-size: 13px;
+  }
+  .inspector-open {
+    font-size: 14px;
+  }
+  .inspector .rail-title {
+    font-size: 13px;
+  }
+}

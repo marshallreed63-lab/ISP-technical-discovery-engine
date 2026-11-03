@@ -1,80 +1,52 @@
-# Stitch structural redesign: gap analysis and fidelity review
+# Final Stitch visual fidelity review
 
-## Before implementation
+## Recommendation
 
-Compared with the supplied inline Stitch reference, the prior implementation had these structural gaps:
+**Ready to merge.** The major desktop composition now follows the Stitch reference, the actual original/implementation comparison has been captured and inspected, and functional validation passes. The remaining differences below preserve honest research and useful controls; exact pixel equivalence is not claimed. Nothing has been merged, deployed, or released.
 
-| Area          | Prior application                                                          | Reference / required change                                                                                     |
-| ------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Composition   | Large page title and introduction before metrics                           | Compact global application header, phase bar, metrics, then working surface                                     |
-| Navigation    | Four flat links in a narrow sidebar                                        | Persistent wider sidebar with lifecycle and intelligence-library groups                                         |
-| Workflow      | Research progression shown only as text; account progress local to details | Interactive horizontal phase navigation available across research and account work                              |
-| Summary       | Four spacious rounded cards                                                | Five compact rectangular metrics aligned in one strip                                                           |
-| Research grid | Four columns, generous row height                                          | Dense five-column table with a dedicated evidence-state column                                                  |
-| Inspector     | Long continuous source list, narrow panel with independent scrollbar       | Wider inspector with account context, primary action, discrete evidence nodes, personas and hypothesis sections |
-| Discovery     | Local progress, separate context blocks and long forms                     | Common shell and selected-account context; conversation guide paired with working inputs                        |
-| Responsive    | Inspector stacks early, wide table requires scrolling                      | Keep split desktop geometry; controlled tablet stacking and mobile navigation/table behavior                    |
-| Typography    | Small sans-serif interface, large headings, rounded surfaces               | Reference uses a serif-forward editorial hierarchy, compact headers and crisp dividers                          |
+## Original reference and comparison evidence
 
-Navigation groups, common phase navigation, five-cell summary, fifth table column, inspector sections, and discovery component hierarchy require actual markup/controller changes. CSS alone cannot supply working navigation, evidence status, stakeholder controls, or account context.
+The ZIP supplied in the review chat contains `isp-stitch-original-reference.png`. The original was extracted, decoded, and opened successfully in the execution workspace. Its dimensions are **1722 × 1376 pixels**, with SHA-256 `e8ecc19466a4dc77325d05f76eb98c5f07f2a9b55800fed9deb9068ce522b1b8`.
 
-The screenshot's ASN identifiers, funding claims, verified deployment implications, graph synchronization, and tenant details are not adopted without repository evidence. Research priority remains a heuristic, not verification confidence.
+The live application was captured in Chromium at exactly **1722 × 1376**, device scale factor 1. Chromium then displayed both unmodified screenshots at their native dimensions and captured the comparison page. The result is **3444 × 1424**: two 1722 × 1376 panels plus a 48 px label strip. The original is on the **left**, actual application on the **right**. No generated or reconstructed reference image was used.
 
-## Reference access
+- [Final original-versus-implementation comparison](design-review/stitch-comparison.png)
+- [Actual Account Research capture](design-review/account-research-1722x1376.png)
 
-The original screenshot is visible inline in the conversation and was used for visual inspection. Its bitmap is not mounted in the execution workspace and no downloadable image file ID was supplied. The macOS Desktop path cannot be read from this cloud machine. A literal original-reference/implementation composite therefore requires the original image as an accessible file; this limitation must not be represented as completed acceptance.
+The earlier missing-original-file blocker is resolved. These checked-in artifacts supersede the previous file-picker-only comparison tool and approximate-height screenshots.
 
-## Implemented structural revision
+## Geometry and visual inspection
 
-- New `workspace-shell.ts` supplies readable application chrome and research markup with grouped lifecycle/library navigation, one global phase bar, a five-cell summary, a five-column research table, and a dedicated inspector section.
-- The research page no longer begins with a large title or tall introductory cards. The scoring model remains functional in an expandable drawer below the table.
-- Source state is derived from existing evidence review metadata. A source-review filter adds a usable control at the reference's filter location; the existing scoring and region filters remain available.
-- Inspector evidence is presented as discrete source nodes. Full facts and limitations are accessible through native disclosures; all sources remain available, including additional evidence beyond the first two nodes. All three existing personas are actionable conversation lenses, never fabricated named contacts. The hypothesis remains explicitly unverified, with its full text expandable.
-- The account workspace now has a breadcrumb, selected-account context, compact progress hint derived from `workflowProgress`, and a conversation guide paired with working inputs. Persona selection is inside the guide. Source-backed evidence stays linked; the longer research context is a separate expandable section.
-- Global navigation opens the currently selected account at Discovery, Outcome, or Handoff and returns to the shortlist without changing account research or outcome rules.
+The original and actual captures were compared for panel proportions, sidebar/header alignment, phase navigation, metrics, table/inspector split, typography, spacing and density.
 
-## Visual inspection and measurements
+The implementation retains a 336 px sidebar, 64 px header, horizontal phase bar, five-cell metric strip, five-column research table, and 424 px inspector. At this width the metric strip starts at y=138, the research area near y=219, and the table header near y=274, closely following the reference. Selected-account highlighting, purple primary actions, discrete evidence nodes, persona controls and an explicitly unverified hypothesis retain the reference's hierarchy.
 
-Actual Chromium captures were inspected against the inline reference at **1722 × 1378** (the nearest known reference viewport). These are measured implementation coordinates, not a pixel-diff score:
+### Three largest remaining visual differences
 
-| Element               | Actual implementation       |
-| --------------------- | --------------------------- |
-| Sidebar               | x=25, width=336 px          |
-| Header                | y=25, height=64 px          |
-| Phase bar             | y=89, height=39 px          |
-| Five-metric strip     | y=138, height≈69 px         |
-| Research working area | x=381, y≈217 px             |
-| Table                 | y≈272, width=862 px         |
-| Inspector             | x=1261, y≈217, width=424 px |
+1. **Inspector length and content density.** The implemented inspector extends farther down the page. It includes all three actual buyer personas, the real source titles, additional-evidence access, full-evidence/limitation disclosures and an unverified-hypothesis disclosure. The reference shows two stakeholder cards and shorter source content. These controls and factual distinctions remain available rather than replacing them with shorter fictional content.
+2. **Table typography and evidence presentation.** The original has larger, more varied evidence badges and shorter footprint labels with ASNs. The implementation uses truthful `Source reviewed`/`Review required` states; source review never implies a verified RADIUS deployment. Longer existing footprint/angle text truncates visually at desktop sizes, with its complete text retained in tooltips and the DOM. No ASNs or deployment states were invented to reproduce the reference.
+3. **Outer frame and header chrome.** The screenshot's heavy gray rounded frame, notifications/avatar, tenant status and graph synchronization are simplified to a thin application boundary, functional search and methodology controls, and honest public-research/session status. Fake account or synchronization features were not introduced.
 
-The sidebar/header, summary-strip location, table-to-inspector split, and selected-row/primary-action hierarchy now follow the reference's major geometry. The first visual pass was revised to reduce the inspector's height and to move discovery questions up beside the live inputs rather than below duplicated navigation and large context cards.
+## Targeted final corrections
 
-### Remaining differences
+The first exact-resolution comparison exposed undersized desktop text. The final pass increases navigation, metric, table and inspector-label reading sizes, tightens navigation rhythm, and keeps table rows compact with single-line desktop subtitles. Full subtitles are available via native tooltips. No further structural rebuild or new feature was necessary.
 
-- The inspector remains taller (about 869 px) than the reference. The application preserves three real persona choices and the repository's actual source titles, facts and cautions. Full evidence and hypotheses can expand beyond the overview.
-- The reference's heavy gray device-like outer frame is represented by a thin application boundary. Notification/account chrome, graph synchronization, unsupported ASNs, named stakeholders, and unverified deployment assertions were not reproduced as working product features.
-- Source badges report **Source reviewed**, rather than implying verified AAA technology or treating the research score as confidence. This is an intentional factual difference from the reference.
-- Smaller screens stack panels and retain horizontal scrolling within the table and lifecycle navigation. The 1722 px desktop composition is not squeezed unchanged into mobile.
-- Literal original-left / implementation-right screenshot output is **pending** access to the original bitmap. `/workspace/design-review/reference-comparison.html` embeds the actual capture and can display the original locally via its file picker; it does not contain an invented reference substitute. This is a comparison tool, not evidence that the required composite was captured.
+Changes in this final pass:
 
-## Functional and responsive QA
+- `src/isp.css`: desktop reading scale and navigation/table density.
+- `src/lib/isp-app.ts`: full account subtitle tooltip; no calculation or outcome changes.
+- `docs/VISUAL_FIDELITY.md` and `DESIGN_REVIEW.md`: resolved reference access and final review result.
+- `docs/design-review/*.png`: durable original/actual comparison and actual research capture.
 
-- **58 tests passed across 4 files**: all original tests, the earlier UI regressions, and four new tests for shared lifecycle navigation, source/persona accessibility, textarea focus during progress updates, and source filtering without score changes.
-- **Production build passed**: client, SSR, and Cloudflare-module output. Existing tsconfig-paths and inline-dynamic-import advisories remain nonblocking.
-- Chromium exercised five accounts, five summary cells, search/region/threshold/source filters, account inspection, keyboard arrow navigation and focus, search shortcut, scoring/reset, and downloaded CSV content.
-- All three personas and their three questions were exercised. Actual question clipboard contents, evidence-link highlighting, shared lifecycle navigation, A/B/C outcomes, commercial-field constraints, demo/reset, handoff generation/copy/invalidation, and retained textarea focus passed.
-- Research and discovery fit page widths **1722, 1440, 1024, 768, and 390 px**, with table scrolling inside its container and no page-level horizontal overflow. No browser page errors were observed.
-- `discovery-data.ts`, `discovery.ts`, `isp-data.ts`, and `outcome.ts` are unchanged from commit `6835628`; research content, scoring calculations, deterministic questions, qualification rules and handoff rules remain intact.
-- Safari, Firefox, assistive technology and real mobile hardware were not tested. Browser captures use local Georgia/Times serif fallbacks matching the supplied reference's visible typography; there are no new font downloads.
+The earlier structural revision replaced the large introductory layout with grouped navigation, shared phase navigation, a compact five-metric strip, dense table and persistent inspector. Discovery uses the same shell and pairs live inputs with the conversation guide. Styling changes alone did not supply those interactions.
 
-## Artifacts and acceptance status
+## Validation after the final corrections
 
-Artifacts outside the checkout in `/workspace/design-review`:
+- **58 tests passed across 4 files.** The full existing test suite ran, including deterministic qualification and handoff tests and presentation interaction regressions.
+- **Production build passed**, including client, SSR and Cloudflare-module output. Existing tsconfig-paths and inline-dynamic-import advisories remain nonblocking.
+- Chromium verified all five accounts; search, region, score and source filters; account inspection; arrow-key focus and search shortcut; scoring/reset; and actual downloaded CSV contents.
+- All three personas and question sets were exercised. Actual clipboard contents, evidence highlighting, shared Research → Discovery → Outcome → Handoff navigation, A/B/C decisions and commercial-field constraints, demo/reset, handoff generation/copy/invalidation and retained textarea focus passed.
+- Research and discovery had no page-level horizontal overflow at widths **1722, 1440, 1024, 768 and 390 px**. The table scrolls inside its container on smaller screens. No browser page errors were observed.
+- `discovery-data.ts`, `discovery.ts`, `isp-data.ts` and `outcome.ts` are unchanged from the pre-review branch. Research, citations, scoring calculations, qualification rules and handoff logic remain intact.
 
-- `stitch-size-research.png` and `stitch-size-discovery.png`: actual 1722 × 1378 desktop viewports.
-- `structural-mobile-research.png` and `structural-mobile-discovery.png`: full mobile pages at 390 px width.
-- `structural-tablet-research.png` and `structural-tablet-discovery.png`: 768 px tablet viewports.
-- `structural-qa.cjs`, `structural-qa-results.json`, `layout-measurements.json`, `structural-build.log`: reproducible browser check and current-run evidence.
-- `reference-comparison.html`: offline original-file/actual-render comparison tool; original bitmap still required.
-
-The structural implementation and listed functional checks are verified. **Final visual acceptance is not declared complete while the required original-reference composite is unavailable.** No merge, deployment, or release was performed.
+Safari, Firefox, assistive technology and physical mobile devices were not tested. The existing browser/test evidence supports merging this interface revision; it does not establish universal browser or accessibility certification.

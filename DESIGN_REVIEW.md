@@ -1,6 +1,6 @@
 # Enterprise interface review
 
-> The initial styling pass below is superseded by the structural revision documented in [VISUAL_FIDELITY.md](docs/VISUAL_FIDELITY.md). The current revision passes 58 tests and the production build. Literal original-reference composite verification remains pending access to the original image file.
+> The initial styling pass below is superseded by the structural revision documented in [VISUAL_FIDELITY.md](docs/VISUAL_FIDELITY.md). The current revision passes 58 tests and the production build. The original PNG is now verified and the exact-resolution side-by-side comparison is captured; the final report recommends merging with the documented intentional differences.
 
 Branch: `design/enterprise-discovery-workspace`
 
