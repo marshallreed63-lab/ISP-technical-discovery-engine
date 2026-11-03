@@ -1,92 +1,467 @@
 // @ts-nocheck
 // Original imperative app logic; initIspApp runs once the markup is mounted.
 import { SIGNALS, ACCOUNTS } from "./isp-data";
-import { PERSONAS, CONCEPTS, HEROTEL_NOTE, EVIDENCE, DISCOVERY_ANGLE, EVIDENCE_NOTES, STEP_LABELS } from "./discovery-data";
-import { EMPTY_OUTCOME, DEMO_OUTCOME, RADIUS_LABELS, NEED_LABELS, OWNERSHIP_LABELS, SUPPORT_LABELS, URGENCY_LABELS, BUDGET_LABELS, DECISION_LABELS, ACTIONS, nextAction, outcomeUnknowns, explainAction, opportunityFraming, buildHandoff, workflowProgress } from "./outcome";
-import { buildPlan, datasetMetrics, evidenceFor, latestEvidence, discoveryPlanCount, snapshotFor } from "./discovery";
+import {
+  PERSONAS,
+  CONCEPTS,
+  HEROTEL_NOTE,
+  EVIDENCE,
+  DISCOVERY_ANGLE,
+  EVIDENCE_NOTES,
+  STEP_LABELS,
+} from "./discovery-data";
+import {
+  EMPTY_OUTCOME,
+  DEMO_OUTCOME,
+  RADIUS_LABELS,
+  NEED_LABELS,
+  OWNERSHIP_LABELS,
+  SUPPORT_LABELS,
+  URGENCY_LABELS,
+  BUDGET_LABELS,
+  DECISION_LABELS,
+  ACTIONS,
+  nextAction,
+  outcomeUnknowns,
+  explainAction,
+  opportunityFraming,
+  buildHandoff,
+  workflowProgress,
+} from "./outcome";
+import {
+  buildPlan,
+  datasetMetrics,
+  evidenceFor,
+  latestEvidence,
+  discoveryPlanCount,
+  snapshotFor,
+} from "./discovery";
 export function initIspApp() {
+  let weights = Object.fromEntries(Object.entries(SIGNALS).map(([k, v]) => [k, v.weight]));
+  let selected = "citywest",
+    role = "Network Engineering",
+    filter = "",
+    region = "all",
+    minimum = 0,
+    view = "research";
+  const openDetails = new Set();
+  const outcomes = new Map(),
+    handoffs = new Map();
+  const getO = (id) => outcomes.get(id) ?? { ...EMPTY_OUTCOME };
+  const esc = (s) =>
+    String(s).replace(
+      /[&<>\"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#39;" })[c],
+    );
+  const score = (a) =>
+    Math.round(
+      (100 * a.signals.reduce((v, k) => v + weights[k], 0)) /
+        Math.max(
+          1,
+          Object.values(weights).reduce((x, y) => x + y, 0),
+        ),
+    );
+  const rank = () =>
+    ACCOUNTS.slice()
+      .filter(
+        (a) =>
+          (region === "all" || a.region === region) &&
+          (a.name + " " + a.location).toLowerCase().includes(filter.toLowerCase()) &&
+          score(a) >= minimum,
+      )
+      .sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name));
+  function setView(v) {
+    view = v;
+    const navV = v === "account" ? "research" : v;
+    document
+      .querySelectorAll("#nav button")
+      .forEach((b) => b.classList.toggle("active", b.dataset.view === navV));
+    document.getElementById("topline").classList.toggle("hidden", v === "account");
+    document
+      .querySelectorAll("main > section")
+      .forEach((s) => s.classList.toggle("hidden", s.id !== "view-" + v));
+  }
+  function renderMetrics() {
+    const m = datasetMetrics(ACCOUNTS);
+    document.getElementById("metrics").innerHTML =
+      `<div class="panel metric"><div class="label">Publicly researched accounts</div><strong>${m.accounts}</strong><small>${m.evidenceRecords} linked evidence records</small></div><div class="panel metric"><div class="label">Countries covered</div><strong>${m.regions.length}</strong><small>${esc(m.regions.join(" and "))}</small></div><div class="panel metric"><div class="label">Accounts with ${m.latestYear ?? "recent"} signals</div><strong>${m.accountsWithLatestYear}</strong><small>Dated public evidence from ${m.latestYear ?? "—"}</small></div><div class="panel metric"><div class="label">Technical discovery plans</div><strong>${discoveryPlanCount(ACCOUNTS)}</strong><small>Account × stakeholder plans · FreeRADIUS not verified</small></div>`;
+  }
+  function tags(a) {
+    return a.signals.map((k) => `<span>${SIGNALS[k].label}</span>`).join("");
+  }
+  function tier(s) {
+    return s >= 60 ? "Research first" : s >= 40 ? "Explore" : "Nurture";
+  }
+  function renderTable() {
+    let rows = rank();
+    document.getElementById("accountsTable").innerHTML =
+      rows
+        .map((a) => {
+          let s = score(a);
+          return `<tr data-id="${esc(a.id)}" class="${selected === a.id ? "selected" : ""}" aria-selected="${selected === a.id}" tabindex="0" aria-label="Inspect ${esc(a.name)}"><td><b>${esc(a.name)}</b><span class="sub">${esc(a.location)}</span>${DISCOVERY_ANGLE[a.id] ? `<span class="angle">Angle: ${esc(DISCOVERY_ANGLE[a.id])}</span>` : ""}</td><td><div class="signal-tags">${tags(a)}</div></td><td><div class="barrow"><div class="scorebar"><span style="width:${s}%"></span></div><span class="score-num">${s}</span></div><span class="sub">${tier(s)} · heuristic</span></td><td><button class="button small" data-open="${esc(a.id)}">Open plan →</button></td></tr>`;
+        })
+        .join("") ||
+      `<tr><td colspan="4" class="empty">No accounts match this filter. Try another threshold or region.</td></tr>`;
+    document.querySelectorAll("#accountsTable tr[data-id]").forEach((row) => {
+      row.addEventListener("click", (e) => {
+        if (e.target.closest("[data-open]")) choose(row.dataset.id);
+        else inspect(row.dataset.id);
+      });
+      row.addEventListener("keydown", (e) => {
+        if (e.target !== row) return;
+        if (e.key === "Enter") {
+          e.preventDefault();
+          choose(row.dataset.id);
+        }
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          const rows = rank(),
+            i = rows.findIndex((a) => a.id === row.dataset.id),
+            a = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))];
+          inspect(a.id);
+          document.querySelector('#accountsTable tr[data-id="' + a.id + '"]').focus();
+        }
+      });
+    });
+  }
+  function inspect(id) {
+    selected = id;
+    renderTable();
+    renderInspector();
+  }
+  function choose(id) {
+    selected = id;
+    renderTable();
+    renderInspector();
+    renderDetail();
+    setView("account");
+    window.scrollTo(0, 0);
+  }
+  function renderInspector() {
+    const a = ACCOUNTS.find((x) => x.id === selected),
+      el = document.getElementById("accountInspector");
+    const evidence = evidenceFor(a.id);
+    el.innerHTML = `<div class="inspector-heading"><span class="eyebrow">Account inspector</span><span class="lbl unk">Research only</span></div><h2 class="detail-title">${esc(a.name)}</h2><p class="detail-loc">${esc(a.location)}</p><div class="detail-score"><div><span class="caption">Research Priority</span><br><strong>${score(a)}<span class="sub"> / 100</span></strong></div><div><span class="caption">FreeRADIUS deployment</span><br><span class="lbl unk">Not verified</span></div></div><button class="button primary inspector-open">Open discovery workspace →</button><h3 class="rail-title">Public evidence <span>${evidence.length} sources</span></h3>${evidence.map((e) => `<div class="source"><span class="lbl ${e.verification === "Source reviewed" ? "fact" : "unk"}">${esc(e.verification)}</span><p>${esc(e.fact)}</p><a href="${esc(e.url)}" target="_blank" rel="noopener noreferrer">${esc(e.sourceTitle)} ↗</a><div class="date">${esc(e.date)}</div><p class="caption">${esc(e.limitation)}</p></div>`).join("")}<div class="inspector-note"><span class="lbl hypo">Hypothesis · unverified</span><p>${esc(a.hypothesis)}</p></div>`;
+    el.querySelector(".inspector-open").addEventListener("click", () => choose(a.id));
+  }
 
-let weights=Object.fromEntries(Object.entries(SIGNALS).map(([k,v])=>[k,v.weight]));let selected="citywest",role="Network Engineering",filter="",region="all",minimum=0,view="research";
-const openDetails=new Set();
-const outcomes=new Map(),handoffs=new Map();const getO=id=>outcomes.get(id)??{...EMPTY_OUTCOME};
-const esc=s=>String(s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
-const score=a=>Math.round(100*a.signals.reduce((v,k)=>v+weights[k],0)/Math.max(1,Object.values(weights).reduce((x,y)=>x+y,0)));
-const rank=()=>ACCOUNTS.slice().filter(a=>(region==='all'||a.region===region)&&(a.name+' '+a.location).toLowerCase().includes(filter.toLowerCase())&&score(a)>=minimum).sort((a,b)=>score(b)-score(a)||a.name.localeCompare(b.name));
-function setView(v){view=v;const navV=v==='account'?'research':v;document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===navV));document.getElementById('topline').classList.toggle('hidden',v==='account');document.querySelectorAll('main > section').forEach(s=>s.classList.toggle('hidden',s.id!=='view-'+v));}
-function renderMetrics(){const m=datasetMetrics(ACCOUNTS);document.getElementById('metrics').innerHTML=`<div class="panel metric"><div class="label">Publicly researched accounts</div><strong>${m.accounts}</strong><small>${m.evidenceRecords} linked evidence records</small></div><div class="panel metric"><div class="label">Countries covered</div><strong>${m.regions.length}</strong><small>${esc(m.regions.join(' and '))}</small></div><div class="panel metric"><div class="label">Accounts with ${m.latestYear??'recent'} signals</div><strong>${m.accountsWithLatestYear}</strong><small>Dated public evidence from ${m.latestYear??'—'}</small></div><div class="panel metric"><div class="label">Technical discovery plans</div><strong>${discoveryPlanCount(ACCOUNTS)}</strong><small>Account × stakeholder plans · FreeRADIUS not verified</small></div>`;}
-function tags(a){return a.signals.map(k=>`<span>${SIGNALS[k].label}</span>`).join('');}
-function tier(s){return s>=60?'Research first':s>=40?'Explore':'Nurture';}
-function renderTable(){let rows=rank();document.getElementById('accountsTable').innerHTML=rows.map(a=>{let s=score(a);return `<tr data-id="${esc(a.id)}" class="${selected===a.id?'selected':''}" tabindex="0"><td><b>${esc(a.name)}</b><span class="sub">${esc(a.location)}</span>${DISCOVERY_ANGLE[a.id]?`<span class="angle">Angle: ${esc(DISCOVERY_ANGLE[a.id])}</span>`:""}</td><td><div class="signal-tags">${tags(a)}</div></td><td><div class="barrow"><div class="scorebar"><span style="width:${s}%"></span></div><span class="score-num">${s}</span></div><span class="sub">${tier(s)} · heuristic</span></td><td><button class="button small" data-open="${esc(a.id)}">View plan →</button></td></tr>`;}).join('')||`<tr><td colspan="4" class="empty">No accounts match this filter. Try another threshold or region.</td></tr>`;
- document.querySelectorAll('#accountsTable tr[data-id]').forEach(row=>{row.addEventListener('click',()=>choose(row.dataset.id));row.addEventListener('keydown',e=>{if(e.key==='Enter')choose(row.dataset.id);});});}
-function choose(id){selected=id;renderTable();renderDetail();setView('account');window.scrollTo(0,0);}
-const sigLabel=k=>SIGNALS[k]?.label??k;
-const evLabel=id=>EVIDENCE.find(e=>e.id===id);
-const det=(key,summary,body)=>`<details data-key="${esc(key)}" ${openDetails.has(key)?'open':''}><summary>${summary}</summary><div class="det-body">${body}</div></details>`;
-function renderDetail(){
- let a=ACCOUNTS.find(x=>x.id===selected),s=score(a),detail=document.getElementById('accountDetail'),plan=buildPlan(a.id,role),latest=latestEvidence(a.id),snap=snapshotFor(plan);
- const cited=new Set(plan.questions.map(q=>q.evidenceId));
- const evCards=plan.evidence.map(e=>`<div class="ev${cited.has(e.id)?' cited':''}" id="ev-${esc(e.id)}"><div class="ev-head"><span class="lbl ${e.verification==='Source reviewed'?'fact':'unk'}">${e.verification==='Source reviewed'?'Verified fact':'Source requires verification'}</span><span class="date">${esc(e.date)}</span>${e.signals.map(k=>`<span class="tagmini">${esc(sigLabel(k))}</span>`).join('')}</div><p>${esc(e.fact)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(e.url)}">${esc(e.sourceTitle)} ↗</a><span class="sub"> · ${esc(e.publisher)}${e.verification!=='Source reviewed'?' · <em>link requires re-verification</em>':''}</span><p class="limit"><b>Limitation:</b> ${esc(e.limitation)}</p></div>`).join('');
- const hyp=plan.challenges.map(c=>`<div class="hyp"><div class="hyp-title">${esc(c.title)}</div><div class="ev-head"><span class="lbl hypo">Hypothesis · unverified</span>${c.concepts.map(k=>`<span class="tagmini">${esc(CONCEPTS[k].name)}</span>`).join('')}</div><p>${esc(c.hypothesis)}</p><p class="caption"><b>Triggered by:</b> ${c.evidenceIds.map(id=>esc(evLabel(id)?.sourceTitle)).join('; ')}</p><p class="caption"><b>Why it could matter:</b> ${esc(c.relevance)}</p><p class="caption"><span class="lbl unk">Unknown</span> ${c.unknowns.map(esc).join(' · ')}</p></div>`).join('');
- const qs=plan.questions.map(q=>{const ev=evLabel(q.evidenceId),c=CONCEPTS[q.concept];return `<li class="dq"><div class="dq-step">${esc(STEP_LABELS[q.depth])}</div><div class="dq-text">“${esc(q.text)}”</div><button class="evchip" data-ev="${esc(ev.id)}">Evidence: ${esc(ev.sourceTitle)} · ${esc(ev.date)}</button>${det(q.id,'Why ask this?',`<h4>Evidence behind this question</h4><p><a target="_blank" rel="noopener noreferrer" href="${esc(ev.url)}">${esc(ev.sourceTitle)} ↗</a> (${esc(ev.date)})</p><h4>Technical reasoning</h4><p>${esc(q.why)}</p><h4>What the answer helps establish</h4><p>${esc(q.learn)}</p><h4>Relevant technical concept</h4><p><b>${esc(c.name)}:</b> ${esc(c.explain)} <em>${esc(c.caution)}</em>${c.ref?` <a target="_blank" rel="noopener noreferrer" href="${esc(c.ref)}">RFC ↗</a>`:''}</p><h4>Suggested follow-up</h4><p>“${esc(q.followUp)}”</p>`)}</li>`;}).join('');
- const svc=plan.insufficient?`<div class="callout"><strong>Insufficient evidence for a specific InkBridge recommendation. Further discovery required.</strong><p class="caption" style="margin:6px 0 0">This is intentional: public evidence here relates to transport, not subscriber authentication.</p></div>`:plan.services.map(x=>`<div class="svc"><div class="hyp-title">${esc(x.service.name)}</div><p class="caption"><b>Relevant capability:</b> ${esc(x.service.description)}</p><p class="caption"><b>Why it could matter:</b> ${esc(x.why)}</p><p class="caption"><b>Must confirm first:</b> ${x.confirm.map(esc).join(' · ')}</p><a target="_blank" rel="noopener noreferrer" href="${esc(x.service.url)}">Official InkBridge reference ↗</a></div>`).join('');
- const note=EVIDENCE_NOTES[a.id]?`<div class="callout warning"><strong>Evidence note:</strong> ${esc(EVIDENCE_NOTES[a.id])}</div>`:'';
- const sig=snap.signal;
- detail.innerHTML=`<button class="button ghost small" id="backBtn">← Back to shortlist</button>
- <div class="ws-head"><div><h2 class="detail-title">${esc(a.name)}</h2><p class="detail-loc">${esc(a.location)} · ${esc(a.sector)} · latest evidence ${esc(latest?.date??'—')} · FreeRADIUS deployment: <b>not verified</b></p></div><div class="ws-score"><span class="caption">Research Priority</span><strong>${s}<span> / 100</span></strong><span class="pill ${s>=60?'':s>=40?'mid':'low'}">${tier(s)}</span><span class="caption">Not technical fit or purchase probability</span></div></div>
+  const sigLabel = (k) => SIGNALS[k]?.label ?? k;
+  const evLabel = (id) => EVIDENCE.find((e) => e.id === id);
+  const det = (key, summary, body) =>
+    `<details data-key="${esc(key)}" ${openDetails.has(key) ? "open" : ""}><summary>${summary}</summary><div class="det-body">${body}</div></details>`;
+  function renderDetail() {
+    let a = ACCOUNTS.find((x) => x.id === selected),
+      s = score(a),
+      detail = document.getElementById("accountDetail"),
+      plan = buildPlan(a.id, role),
+      latest = latestEvidence(a.id),
+      snap = snapshotFor(plan);
+    const cited = new Set(plan.questions.map((q) => q.evidenceId));
+    const evCards = plan.evidence
+      .map(
+        (e) =>
+          `<div class="ev${cited.has(e.id) ? " cited" : ""}" id="ev-${esc(e.id)}"><div class="ev-head"><span class="lbl ${e.verification === "Source reviewed" ? "fact" : "unk"}">${e.verification === "Source reviewed" ? "Source reviewed" : "Source requires verification"}</span><span class="date">${esc(e.date)}</span>${e.signals.map((k) => `<span class="tagmini">${esc(sigLabel(k))}</span>`).join("")}</div><p>${esc(e.fact)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(e.url)}">${esc(e.sourceTitle)} ↗</a><span class="sub"> · ${esc(e.publisher)}${e.verification !== "Source reviewed" ? " · <em>link requires re-verification</em>" : ""}</span><p class="limit"><b>Limitation:</b> ${esc(e.limitation)}</p></div>`,
+      )
+      .join("");
+    const hyp = plan.challenges
+      .map(
+        (c) =>
+          `<div class="hyp"><div class="hyp-title">${esc(c.title)}</div><div class="ev-head"><span class="lbl hypo">Hypothesis · unverified</span>${c.concepts.map((k) => `<span class="tagmini">${esc(CONCEPTS[k].name)}</span>`).join("")}</div><p>${esc(c.hypothesis)}</p><p class="caption"><b>Triggered by:</b> ${c.evidenceIds.map((id) => esc(evLabel(id)?.sourceTitle)).join("; ")}</p><p class="caption"><b>Why it could matter:</b> ${esc(c.relevance)}</p><p class="caption"><span class="lbl unk">Unknown</span> ${c.unknowns.map(esc).join(" · ")}</p></div>`,
+      )
+      .join("");
+    const qs = plan.questions
+      .map((q, index) => {
+        const ev = evLabel(q.evidenceId),
+          c = CONCEPTS[q.concept];
+        return `<li class="dq"><div class="dq-header"><div class="dq-step"><span class="question-number">Q${index + 1}</span>${esc(STEP_LABELS[q.depth])}</div><button class="button ghost small" data-copy-question="${index}" aria-label="Copy question ${index + 1}">Copy</button></div><div class="dq-text">“${esc(q.text)}”</div><button class="evchip" data-ev="${esc(ev.id)}">Evidence: ${esc(ev.sourceTitle)} · ${esc(ev.date)}</button>${det(q.id, "Why ask this?", `<h4>Evidence behind this question</h4><p><a target="_blank" rel="noopener noreferrer" href="${esc(ev.url)}">${esc(ev.sourceTitle)} ↗</a> (${esc(ev.date)})</p><h4>Technical reasoning</h4><p>${esc(q.why)}</p><h4>What the answer helps establish</h4><p>${esc(q.learn)}</p><h4>Relevant technical concept</h4><p><b>${esc(c.name)}:</b> ${esc(c.explain)} <em>${esc(c.caution)}</em>${c.ref ? ` <a target="_blank" rel="noopener noreferrer" href="${esc(c.ref)}">RFC ↗</a>` : ""}</p><h4>Suggested follow-up</h4><p>“${esc(q.followUp)}”</p>`)}</li>`;
+      })
+      .join("");
+    const svc = plan.insufficient
+      ? `<div class="callout"><strong>Insufficient evidence for a specific InkBridge recommendation. Further discovery required.</strong><p class="caption" style="margin:6px 0 0">This is intentional: public evidence here relates to transport, not subscriber authentication.</p></div>`
+      : plan.services
+          .map(
+            (x) =>
+              `<div class="svc"><div class="hyp-title">${esc(x.service.name)}</div><p class="caption"><b>Relevant capability:</b> ${esc(x.service.description)}</p><p class="caption"><b>Why it could matter:</b> ${esc(x.why)}</p><p class="caption"><b>Must confirm first:</b> ${x.confirm.map(esc).join(" · ")}</p><a target="_blank" rel="noopener noreferrer" href="${esc(x.service.url)}">Official InkBridge reference ↗</a></div>`,
+          )
+          .join("");
+    const note = EVIDENCE_NOTES[a.id]
+      ? `<div class="callout warning"><strong>Evidence note:</strong> ${esc(EVIDENCE_NOTES[a.id])}</div>`
+      : "";
+    const sig = snap.signal;
+    detail.innerHTML = `<button class="button ghost small" id="backBtn">← Back to shortlist</button>
+ <div class="ws-head"><div><h2 class="detail-title">${esc(a.name)}</h2><p class="detail-loc">${esc(a.location)} · ${esc(a.sector)} · latest evidence ${esc(latest?.date ?? "—")} · FreeRADIUS deployment: <b>not verified</b></p></div><div class="ws-score"><span class="caption">Research Priority</span><strong>${s}<span> / 100</span></strong><span class="pill ${s >= 60 ? "" : s >= 40 ? "mid" : "low"}">${tier(s)}</span><span class="caption">Not technical fit or purchase probability</span></div></div>
  <nav class="wf-steps" id="wfSteps" aria-label="Account workflow"></nav>
-  <div class="persona" id="wf-research"><div class="seg" role="group" aria-label="Technical stakeholder">${Object.keys(PERSONAS).map(r=>`<button data-role="${esc(r)}" aria-pressed="${r===role}" class="${r===role?'on':''}">${esc(r)}</button>`).join('')}</div><p class="caption" id="personaFocus">${esc(PERSONAS[role])}</p></div>
- <div class="snap"><div class="snap-cell"><div class="eyebrow">Public signal</div><p>${esc(sig.fact)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(sig.url)}">${esc(sig.sourceTitle)} ↗</a><span class="sub"> · ${esc(sig.date)} · ${sig.verification==='Source reviewed'?'Source reviewed':'Source requires verification'}</span></div><div class="snap-cell"><div class="eyebrow">Technical hypothesis <span class="lbl hypo">Unverified</span></div><p>${snap.hypothesis?esc(snap.hypothesis):'No AAA-specific hypothesis is supported.'}</p>${snap.supportingEvidence.length?`<p class="caption"><b>Additional context (not proof of AAA need):</b></p>${snap.supportingEvidence.map(e=>`<span class="snap-source"><a target="_blank" rel="noopener noreferrer" href="${esc(e.url)}">${esc(e.sourceTitle)} ↗</a><span class="sub">${esc(e.date)} · ${e.verification==='Source reviewed'?'Source reviewed':'Source requires verification'}</span></span>`).join('')}`:''}</div><div class="snap-cell"><div class="eyebrow">Discovery objective</div><p>${esc(snap.objective)}</p></div></div>
- <div class="ws-grid" id="wf-discovery"><div class="panel"><div class="eyebrow">Technical discovery · ${esc(role)}</div><ol class="dq-list">${qs}</ol></div>
+  <div class="persona" id="wf-research"><div class="seg" role="group" aria-label="Technical stakeholder">${Object.keys(
+    PERSONAS,
+  )
+    .map(
+      (r) =>
+        `<button data-role="${esc(r)}" aria-pressed="${r === role}" class="${r === role ? "on" : ""}">${esc(r)}</button>`,
+    )
+    .join("")}</div><p class="caption" id="personaFocus">${esc(PERSONAS[role])}</p></div>
+ <div class="snap"><div class="snap-cell"><div class="eyebrow">Public signal</div><p>${esc(sig.fact)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(sig.url)}">${esc(sig.sourceTitle)} ↗</a><span class="sub"> · ${esc(sig.date)} · ${sig.verification === "Source reviewed" ? "Source reviewed" : "Source requires verification"}</span></div><div class="snap-cell"><div class="eyebrow">Technical hypothesis <span class="lbl hypo">Unverified</span></div><p>${snap.hypothesis ? esc(snap.hypothesis) : "No AAA-specific hypothesis is supported."}</p>${snap.supportingEvidence.length ? `<p class="caption"><b>Additional context (not proof of AAA need):</b></p>${snap.supportingEvidence.map((e) => `<span class="snap-source"><a target="_blank" rel="noopener noreferrer" href="${esc(e.url)}">${esc(e.sourceTitle)} ↗</a><span class="sub">${esc(e.date)} · ${e.verification === "Source reviewed" ? "Source reviewed" : "Source requires verification"}</span></span>`).join("")}` : ""}</div><div class="snap-cell"><div class="eyebrow">Discovery objective</div><p>${esc(snap.objective)}</p></div></div>
+ <div class="live-workspace"><div class="ws-grid" id="wf-discovery"><div class="panel"><div class="eyebrow">Discovery conversation plan</div><h3 class="conversation-title">${esc(role)}</h3><ol class="dq-list">${qs}</ol></div>
  <div class="panel ws-side"><div class="eyebrow">Source-backed evidence</div>${note}${evCards}</div></div>
- <div id="wfBox"></div>
- <div class="panel">${det('hyp-'+a.id,`Technical opportunities to investigate (${plan.challenges.length})`,hyp)}<div class="divider"></div>${det('unknowns-'+a.id,`<span class="lbl unk">Unknown</span> Still to learn (${plan.unknowns.length})`,`<ul>${plan.unknowns.map(u=>`<li>${esc(u)}</li>`).join('')}</ul>`)}</div>
- <div class="panel"><div class="eyebrow">Potential InkBridge relevance · conditional, only if discovery confirms · confidence: ${esc(plan.confidence)}</div>${svc}<div class="divider"></div>${det('herotel-'+a.id,'Reference case study: published InkBridge engagement (Herotel)',`<p class="caption">${esc(HEROTEL_NOTE.text)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(HEROTEL_NOTE.url)}">Read the case study ↗</a>`)}</div>
+ <div id="wfBox"></div></div>
+ <div class="panel">${det("hyp-" + a.id, `Technical opportunities to investigate (${plan.challenges.length})`, hyp)}<div class="divider"></div>${det("unknowns-" + a.id, `<span class="lbl unk">Unknown</span> Still to learn (${plan.unknowns.length})`, `<ul>${plan.unknowns.map((u) => `<li>${esc(u)}</li>`).join("")}</ul>`)}</div>
+ <div class="panel"><div class="eyebrow">Potential InkBridge relevance · conditional, only if discovery confirms · confidence: ${esc(plan.confidence)}</div>${svc}<div class="divider"></div>${det("herotel-" + a.id, "Reference case study: published InkBridge engagement (Herotel)", `<p class="caption">${esc(HEROTEL_NOTE.text)}</p><a target="_blank" rel="noopener noreferrer" href="${esc(HEROTEL_NOTE.url)}">Read the case study ↗</a>`)}</div>
  <div class="panel"><div class="eyebrow">Draft opener · simulated prospecting example · requires human review</div><div class="messaging" id="draft">${esc(plan.opener)}</div><p class="caption">Draft for internal review only. Not sent by or on behalf of InkBridge Networks.</p><button class="button" id="copyDraft">▣ Copy opener</button></div>`;
- detail.querySelectorAll('details[data-key]').forEach(d=>d.addEventListener('toggle',()=>{d.open?openDetails.add(d.dataset.key):openDetails.delete(d.dataset.key);}));
- detail.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{role=b.dataset.role;handoffs.delete(selected);renderDetail();}));
- detail.querySelectorAll('.evchip').forEach(b=>b.addEventListener('click',()=>{const el=document.getElementById('ev-'+b.dataset.ev);if(!el)return;detail.querySelectorAll('.ev.flash').forEach(x=>x.classList.remove('flash'));el.classList.add('flash');el.scrollIntoView({block:'nearest',behavior:'smooth'});}));
- renderWorkflow(a,plan);
- document.getElementById('backBtn').addEventListener('click',()=>setView('research'));
- document.getElementById('copyDraft').addEventListener('click',()=>copyText(plan.opener));}
-const li=xs=>xs.length?`<ul>${xs.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p class="caption">None</p>';
-function actionHtml(o){const act=nextAction(o),ex=explainAction(o),fr=opportunityFraming(o),unk=outcomeUnknowns(o);return `<div class="eyebrow">Suggested next action</div><strong>${act.key}. ${esc(ACTIONS[act.key].title)}</strong><p class="caption">${esc(ACTIONS[act.key].summary)}</p><ul>${act.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>${unk.length?`<p class="caption"><span class="lbl unk">Unknown</span> ${unk.map(esc).join(' · ')}</p>`:''}<div class="wf-explain"><div><h4>Established (${o.demo?'simulated':'prospect-reported'})</h4>${li(ex.established)}</div><div><h4>Unverified</h4>${li(ex.unverified)}</div><div><h4>Missing commercial information</h4>${act.key==="C"?"<p class=\"caption\">Not pursued — no RADIUS-related opportunity</p>":li(ex.missing)}</div></div><p class="caption"><b>Opportunity framing:</b> ${fr.primary?esc('Primary — '+fr.primary)+' ':''}${esc(fr.secondary)}</p><p class="caption"><b>Next step:</b> ${esc(ex.next)}</p><p class="caption"><b>InkBridge specialist:</b> ${esc(ex.specialist)}</p>`;}
-const opts=(labels,v)=>Object.entries(labels).map(([k,l])=>`<option value="${k}" ${k===v?'selected':''}>${esc(l)}</option>`).join('');
-function renderProgress(a){
- const brief=handoffs.get(a.id),progress=workflowProgress(getO(a.id),!!brief);
- const steps=[['wf-research','Research',true],['wf-discovery','Discovery',progress.discovery],['wf-outcome','Outcome',progress.outcome],['wf-handoff','Handoff',progress.handoff]];
- document.getElementById('wfSteps').innerHTML=steps.map(([id,l,done],i)=>`<button data-go="${id}" class="${i===progress.current?'cur':''} ${done?'done':''}" ${i===progress.current?'aria-current="step"':''}><span>${done?'✓':i+1}</span>${l}</button>`).join('<i>→</i>')+`<p class="caption">${esc(progress.hint)}</p>`;
- document.querySelectorAll('#wfSteps button').forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.go)?.scrollIntoView({behavior:'smooth',block:'start'})));
-}
-function renderWorkflow(a,plan){
- const o=getO(a.id),act=nextAction(o),brief=handoffs.get(a.id);
- renderProgress(a);
- const box=document.getElementById('wfBox');
- box.innerHTML=`<div class="panel wf-outcome" id="wf-outcome"><div class="wf-head"><div><div class="eyebrow">Technical discovery outcome · prospect-reported</div><p class="caption">Record what the prospect told you. Kept only in this browser tab; never merged with public evidence above.</p></div><div class="wf-btns"><button class="button small" id="demoBtn">Load demo inputs</button><button class="button ghost small" id="resetBtn">Reset</button></div></div>
- ${o.demo?'<div class="callout warning"><strong>Demonstration mode:</strong> fictional inputs. Not information about the real '+esc(a.name)+'.</div>':''}
- <div class="wf-fields"><label class="field">RADIUS deployment<select data-f="radius">${opts(RADIUS_LABELS,o.radius)}</select></label><label class="field">Identified technical need<select data-f="need">${opts(NEED_LABELS,o.need)}</select></label><label class="field">Infrastructure ownership<select data-f="ownership">${opts(OWNERSHIP_LABELS,o.ownership)}</select></label></div>
+    detail.querySelectorAll("details[data-key]").forEach((d) =>
+      d.addEventListener("toggle", () => {
+        d.open ? openDetails.add(d.dataset.key) : openDetails.delete(d.dataset.key);
+      }),
+    );
+    detail
+      .querySelectorAll("[data-copy-question]")
+      .forEach((b) =>
+        b.addEventListener("click", () => copyText(plan.questions[+b.dataset.copyQuestion].text)),
+      );
+    detail.querySelectorAll(".seg button").forEach((b) =>
+      b.addEventListener("click", () => {
+        role = b.dataset.role;
+        handoffs.delete(selected);
+        renderDetail();
+      }),
+    );
+    detail.querySelectorAll(".evchip").forEach((b) =>
+      b.addEventListener("click", () => {
+        const el = document.getElementById("ev-" + b.dataset.ev);
+        if (!el) return;
+        detail.querySelectorAll(".ev.flash").forEach((x) => x.classList.remove("flash"));
+        el.classList.add("flash");
+        el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }),
+    );
+    renderWorkflow(a, plan);
+    document.getElementById("backBtn").addEventListener("click", () => setView("research"));
+    document.getElementById("copyDraft").addEventListener("click", () => copyText(plan.opener));
+  }
+  const li = (xs) =>
+    xs.length
+      ? `<ul>${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
+      : '<p class="caption">None</p>';
+  function actionHtml(o) {
+    const act = nextAction(o),
+      ex = explainAction(o),
+      fr = opportunityFraming(o),
+      unk = outcomeUnknowns(o);
+    return `<div class="eyebrow">Suggested next action</div><strong>${act.key}. ${esc(ACTIONS[act.key].title)}</strong><p class="caption">${esc(ACTIONS[act.key].summary)}</p><ul>${act.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${unk.length ? `<p class="caption"><span class="lbl unk">Unknown</span> ${unk.map(esc).join(" · ")}</p>` : ""}<div class="wf-explain"><div><h4>Established (${o.demo ? "simulated" : "prospect-reported"})</h4>${li(ex.established)}</div><div><h4>Unverified</h4>${li(ex.unverified)}</div><div><h4>Missing commercial information</h4>${act.key === "C" ? '<p class="caption">Not pursued — no RADIUS-related opportunity</p>' : li(ex.missing)}</div></div><p class="caption"><b>Opportunity framing:</b> ${fr.primary ? esc("Primary — " + fr.primary) + " " : ""}${esc(fr.secondary)}</p><p class="caption"><b>Next step:</b> ${esc(ex.next)}</p><p class="caption"><b>InkBridge specialist:</b> ${esc(ex.specialist)}</p>`;
+  }
+  const opts = (labels, v) =>
+    Object.entries(labels)
+      .map(([k, l]) => `<option value="${k}" ${k === v ? "selected" : ""}>${esc(l)}</option>`)
+      .join("");
+  function renderProgress(a) {
+    const brief = handoffs.get(a.id),
+      progress = workflowProgress(getO(a.id), !!brief);
+    const steps = [
+      ["wf-research", "Research", true],
+      ["wf-discovery", "Discovery", progress.discovery],
+      ["wf-outcome", "Outcome", progress.outcome],
+      ["wf-handoff", "Handoff", progress.handoff],
+    ];
+    document.getElementById("wfSteps").innerHTML =
+      steps
+        .map(
+          ([id, l, done], i) =>
+            `<button data-go="${id}" class="${i === progress.current ? "cur" : ""} ${done ? "done" : ""}" ${i === progress.current ? 'aria-current="step"' : ""}><span>${done ? "✓" : i + 1}</span>${l}</button>`,
+        )
+        .join("<i>→</i>") + `<p class="caption">${esc(progress.hint)}</p>`;
+    document
+      .querySelectorAll("#wfSteps button")
+      .forEach((b) =>
+        b.addEventListener("click", () =>
+          document
+            .getElementById(b.dataset.go)
+            ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        ),
+      );
+  }
+  function renderWorkflow(a, plan) {
+    const o = getO(a.id),
+      act = nextAction(o),
+      brief = handoffs.get(a.id);
+    renderProgress(a);
+    const box = document.getElementById("wfBox");
+    box.innerHTML = `<div class="panel wf-outcome" id="wf-outcome"><div class="wf-head"><div><div class="eyebrow">Technical discovery outcome · prospect-reported</div><p class="caption">Record what the prospect told you. Kept only in this browser tab; never merged with public evidence above.</p></div><div class="wf-btns"><button class="button small" id="demoBtn">Load demo inputs</button><button class="button ghost small" id="resetBtn">Reset</button></div></div>
+ ${o.demo ? '<div class="callout warning"><strong>Demonstration mode:</strong> fictional inputs. Not information about the real ' + esc(a.name) + ".</div>" : ""}
+ <div class="wf-fields"><label class="field">RADIUS deployment<select data-f="radius">${opts(RADIUS_LABELS, o.radius)}</select></label><label class="field">Identified technical need<select data-f="need">${opts(NEED_LABELS, o.need)}</select></label><label class="field">Infrastructure ownership<select data-f="ownership">${opts(OWNERSHIP_LABELS, o.ownership)}</select></label></div>
  <label class="field">Stated architecture or operational requirements<textarea data-f="notes" rows="3" placeholder="What the prospect described…">${esc(o.notes)}</textarea></label>
  <label class="field">Open technical questions for follow-up (one per line)<textarea data-f="openQuestions" rows="2" placeholder="Questions for InkBridge engineering…">${esc(o.openQuestions)}</textarea></label>
  <div class="eyebrow wf-sub">Commercial qualification · prospect-reported</div><p class="caption">Leave as "Not established" unless the prospect said it. Never enter assumed budgets or authority.</p>
- <div class="wf-fields"><label class="field">Current support arrangements<select data-f="support">${opts(SUPPORT_LABELS,o.support)}</select></label><label class="field">Urgency or active initiative<select data-f="urgency">${opts(URGENCY_LABELS,o.urgency)}</select></label><label class="field">Budget status (no amounts)<select data-f="budget">${opts(BUDGET_LABELS,o.budget)}</select></label><label class="field">Decision-maker &amp; purchasing process<select data-f="decision">${opts(DECISION_LABELS,o.decision)}</select></label></div>
+ <div class="wf-fields"><label class="field">Current support arrangements<select data-f="support">${opts(SUPPORT_LABELS, o.support)}</select></label><label class="field">Urgency or active initiative<select data-f="urgency">${opts(URGENCY_LABELS, o.urgency)}</select></label><label class="field">Budget status (no amounts)<select data-f="budget">${opts(BUDGET_LABELS, o.budget)}</select></label><label class="field">Decision-maker &amp; purchasing process<select data-f="decision">${opts(DECISION_LABELS, o.decision)}</select></label></div>
  <label class="field">Operational or business impact<textarea data-f="impact" rows="2" placeholder="Not established">${esc(o.impact)}</textarea></label>
  <label class="field">Decision process details (as described)<textarea data-f="decisionNotes" rows="2" placeholder="Not established">${esc(o.decisionNotes)}</textarea></label>
  <div class="wf-fields wf-two"><label class="field">Relevant stakeholders<textarea data-f="stakeholders" rows="2" placeholder="Not established">${esc(o.stakeholders)}</textarea></label><label class="field">Next agreed action<textarea data-f="agreedNext" rows="2" placeholder="Not established">${esc(o.agreedNext)}</textarea></label></div>
  <div class="wf-action act-${act.key}" id="wfAction">${actionHtml(o)}</div></div>
- <div class="panel" id="wf-handoff"><div class="eyebrow">Technical handoff brief</div><p class="caption">Without discovery findings, the document is a pre-call research summary, not a completed handoff. Commercial details may remain unknown.</p><button class="button primary" id="genBrief">Generate Handoff Brief</button>${brief?`<div class="messaging" id="briefText">${esc(brief)}</div><button class="button" id="copyBrief">▣ Copy Brief</button>`:''}</div>`;
- const save=n=>{outcomes.set(a.id,n);};
- const invalidate=()=>{box.querySelector('#briefText')?.remove();box.querySelector('#copyBrief')?.remove();if(!box.querySelector('#briefStale'))box.querySelector('#genBrief').insertAdjacentHTML('afterend','<p class="caption" id="briefStale"><span class="lbl unk">Out of date</span> Discovery inputs changed — regenerate the brief.</p>');renderProgress(a);};
- box.querySelectorAll('select[data-f]').forEach(el=>el.addEventListener('change',()=>{save({...getO(a.id),[el.dataset.f]:el.value});handoffs.delete(a.id);renderWorkflow(a,plan);}));
- box.querySelectorAll('textarea[data-f]').forEach(el=>el.addEventListener('input',()=>{save({...getO(a.id),[el.dataset.f]:el.value});box.querySelector('#wfAction').innerHTML=actionHtml(getO(a.id));if(handoffs.has(a.id)){handoffs.delete(a.id);invalidate();}renderProgress(a);}));
- box.querySelector('#demoBtn').addEventListener('click',()=>{save({...DEMO_OUTCOME});handoffs.delete(a.id);renderWorkflow(a,plan);});
- box.querySelector('#resetBtn').addEventListener('click',()=>{outcomes.delete(a.id);handoffs.delete(a.id);renderWorkflow(a,plan);});
- box.querySelector('#genBrief').addEventListener('click',()=>{handoffs.set(a.id,buildHandoff(a.name,plan,getO(a.id)));renderWorkflow(a,plan);document.getElementById('wf-handoff').scrollIntoView({behavior:'smooth',block:'start'});});
- box.querySelector('#copyBrief')?.addEventListener('click',()=>copyText(handoffs.get(a.id)));
-}
-async function copyText(t){try{await navigator.clipboard.writeText(t);notify('Copied to clipboard')}catch(e){const temp=document.createElement('textarea');temp.value=t;document.body.appendChild(temp);temp.select();document.execCommand('copy');temp.remove();notify('Copy attempted; verify clipboard')}}
-function notify(t){let n=document.createElement('div');n.textContent=t;n.style.cssText='position:fixed;right:20px;bottom:20px;background:#60dbc8;color:#0d2129;border-radius:10px;padding:12px 16px;font-weight:800;z-index:999';document.body.appendChild(n);setTimeout(()=>n.remove(),2300)}
-function renderWeights(){let el=document.getElementById('weights');el.innerHTML=Object.entries(SIGNALS).map(([k,v])=>`<div class="slider-line"><label for="w-${k}">${esc(v.label)}</label><input type="range" id="w-${k}" min="0" max="40" step="5" value="${weights[k]}"><output id="o-${k}">${weights[k]}</output></div>`).join('');Object.keys(SIGNALS).forEach(k=>document.getElementById('w-'+k).addEventListener('input',e=>{weights[k]=+e.target.value;document.getElementById('o-'+k).textContent=weights[k];renderTable();renderDetail();}));}
-function csvExport(){const cols=['account','region','location','research_priority','signals','research_headline','hypothesis_unverified','source_urls','radiustech_verified'];const lines=[cols.join(',')];rank().forEach(a=>{let vals=[a.name,a.region,a.location,score(a),a.signals.map(x=>SIGNALS[x].label).join('; '),a.headline,a.hypothesis,evidenceFor(a.id).map(s=>s.url).join(' | '),'No'];lines.push(vals.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));});const blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='inkbridge_isp_public_signal_shortlist.csv';link.click();URL.revokeObjectURL(url);}
-function renderSources(){document.getElementById('sourceIndex').innerHTML=ACCOUNTS.map(a=>`<div class="source"><b>${esc(a.name)}</b>${evidenceFor(a.id).map(src=>`<div><a href="${esc(src.url)}" target="_blank" rel="noopener noreferrer">${esc(src.sourceTitle)} (${esc(src.date)}) ↗</a></div>`).join('')}</div>`).join('')+`<div class="source"><b>InkBridge product documentation</b><div><a href="https://www.inkbridgenetworks.com/support/freeradius-support" target="_blank" rel="noopener">FreeRADIUS support tiers ↗</a></div><div><a href="https://www.inkbridgenetworks.com/services/overview" target="_blank" rel="noopener">Professional services ↗</a></div><div><a href="https://www.inkbridgenetworks.com/products/overview" target="_blank" rel="noopener">Product portfolio ↗</a></div><div><a href="https://www.inkbridgenetworks.com/products/inkbridge-radius" target="_blank" rel="noopener">InkBridgeRADIUS ↗</a></div><div><a href="https://www.inkbridgenetworks.com/industries/isps-and-telcos" target="_blank" rel="noopener">ISPs and telcos ↗</a></div><div><a href="https://www.inkbridgenetworks.com/blog/case-studies-12/herotel-isp-authentication-201" target="_blank" rel="noopener">Herotel case study ↗</a></div></div>`;}
-document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));document.getElementById('search').addEventListener('input',e=>{filter=e.target.value;renderTable();});document.getElementById('region').addEventListener('change',e=>{region=e.target.value;renderTable();});document.getElementById('threshold').addEventListener('change',e=>{minimum=+e.target.value;renderTable();});document.getElementById('exportButton').addEventListener('click',csvExport);document.getElementById('resetWeights').addEventListener('click',()=>{weights=Object.fromEntries(Object.entries(SIGNALS).map(([k,v])=>[k,v.weight]));renderWeights();renderTable();renderDetail();});renderMetrics();renderWeights();renderTable();renderDetail();renderSources();
-
+ <div class="panel" id="wf-handoff"><div class="eyebrow">Technical handoff brief</div><p class="caption">Without discovery findings, the document is a pre-call research summary, not a completed handoff. Commercial details may remain unknown.</p><button class="button primary" id="genBrief">Generate Handoff Brief</button>${brief ? `<div class="messaging" id="briefText">${esc(brief)}</div><button class="button" id="copyBrief">▣ Copy Brief</button>` : ""}</div>`;
+    const save = (n) => {
+      outcomes.set(a.id, n);
+    };
+    const invalidate = () => {
+      box.querySelector("#briefText")?.remove();
+      box.querySelector("#copyBrief")?.remove();
+      if (!box.querySelector("#briefStale"))
+        box
+          .querySelector("#genBrief")
+          .insertAdjacentHTML(
+            "afterend",
+            '<p class="caption" id="briefStale"><span class="lbl unk">Out of date</span> Discovery inputs changed — regenerate the brief.</p>',
+          );
+      renderProgress(a);
+    };
+    box.querySelectorAll("select[data-f]").forEach((el) =>
+      el.addEventListener("change", () => {
+        save({ ...getO(a.id), [el.dataset.f]: el.value });
+        handoffs.delete(a.id);
+        renderWorkflow(a, plan);
+      }),
+    );
+    box.querySelectorAll("textarea[data-f]").forEach((el) =>
+      el.addEventListener("input", () => {
+        save({ ...getO(a.id), [el.dataset.f]: el.value });
+        box.querySelector("#wfAction").innerHTML = actionHtml(getO(a.id));
+        if (handoffs.has(a.id)) {
+          handoffs.delete(a.id);
+          invalidate();
+        }
+        renderProgress(a);
+      }),
+    );
+    box.querySelector("#demoBtn").addEventListener("click", () => {
+      save({ ...DEMO_OUTCOME });
+      handoffs.delete(a.id);
+      renderWorkflow(a, plan);
+    });
+    box.querySelector("#resetBtn").addEventListener("click", () => {
+      outcomes.delete(a.id);
+      handoffs.delete(a.id);
+      renderWorkflow(a, plan);
+    });
+    box.querySelector("#genBrief").addEventListener("click", () => {
+      handoffs.set(a.id, buildHandoff(a.name, plan, getO(a.id)));
+      renderWorkflow(a, plan);
+      document.getElementById("wf-handoff").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    box.querySelector("#copyBrief")?.addEventListener("click", () => copyText(handoffs.get(a.id)));
+  }
+  async function copyText(t) {
+    try {
+      await navigator.clipboard.writeText(t);
+      notify("Copied to clipboard");
+    } catch (e) {
+      const temp = document.createElement("textarea");
+      temp.value = t;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand("copy");
+      temp.remove();
+      notify("Copy attempted; verify clipboard");
+    }
+  }
+  function notify(t) {
+    let n = document.createElement("div");
+    n.textContent = t;
+    n.style.cssText =
+      "position:fixed;right:20px;bottom:20px;background:#60dbc8;color:#0d2129;border-radius:10px;padding:12px 16px;font-weight:800;z-index:999";
+    document.body.appendChild(n);
+    setTimeout(() => n.remove(), 2300);
+  }
+  function renderWeights() {
+    let el = document.getElementById("weights");
+    el.innerHTML = Object.entries(SIGNALS)
+      .map(
+        ([k, v]) =>
+          `<div class="slider-line"><label for="w-${k}">${esc(v.label)}</label><input type="range" id="w-${k}" min="0" max="40" step="5" value="${weights[k]}"><output id="o-${k}">${weights[k]}</output></div>`,
+      )
+      .join("");
+    Object.keys(SIGNALS).forEach((k) =>
+      document.getElementById("w-" + k).addEventListener("input", (e) => {
+        weights[k] = +e.target.value;
+        document.getElementById("o-" + k).textContent = weights[k];
+        renderTable();
+        renderInspector();
+        renderDetail();
+      }),
+    );
+  }
+  function csvExport() {
+    const cols = [
+      "account",
+      "region",
+      "location",
+      "research_priority",
+      "signals",
+      "research_headline",
+      "hypothesis_unverified",
+      "source_urls",
+      "radiustech_verified",
+    ];
+    const lines = [cols.join(",")];
+    rank().forEach((a) => {
+      let vals = [
+        a.name,
+        a.region,
+        a.location,
+        score(a),
+        a.signals.map((x) => SIGNALS[x].label).join("; "),
+        a.headline,
+        a.hypothesis,
+        evidenceFor(a.id)
+          .map((s) => s.url)
+          .join(" | "),
+        "No",
+      ];
+      lines.push(vals.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(","));
+    });
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }),
+      url = URL.createObjectURL(blob),
+      link = document.createElement("a");
+    link.href = url;
+    link.download = "inkbridge_isp_public_signal_shortlist.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  function renderSources() {
+    document.getElementById("sourceIndex").innerHTML =
+      ACCOUNTS.map(
+        (a) =>
+          `<div class="source"><b>${esc(a.name)}</b>${evidenceFor(a.id)
+            .map(
+              (src) =>
+                `<div><a href="${esc(src.url)}" target="_blank" rel="noopener noreferrer">${esc(src.sourceTitle)} (${esc(src.date)}) ↗</a></div>`,
+            )
+            .join("")}</div>`,
+      ).join("") +
+      `<div class="source"><b>InkBridge product documentation</b><div><a href="https://www.inkbridgenetworks.com/support/freeradius-support" target="_blank" rel="noopener">FreeRADIUS support tiers ↗</a></div><div><a href="https://www.inkbridgenetworks.com/services/overview" target="_blank" rel="noopener">Professional services ↗</a></div><div><a href="https://www.inkbridgenetworks.com/products/overview" target="_blank" rel="noopener">Product portfolio ↗</a></div><div><a href="https://www.inkbridgenetworks.com/products/inkbridge-radius" target="_blank" rel="noopener">InkBridgeRADIUS ↗</a></div><div><a href="https://www.inkbridgenetworks.com/industries/isps-and-telcos" target="_blank" rel="noopener">ISPs and telcos ↗</a></div><div><a href="https://www.inkbridgenetworks.com/blog/case-studies-12/herotel-isp-authentication-201" target="_blank" rel="noopener">Herotel case study ↗</a></div></div>`;
+  }
+  document
+    .querySelectorAll("#nav button")
+    .forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+  document.getElementById("search").addEventListener("input", (e) => {
+    filter = e.target.value;
+    renderTable();
+  });
+  document.getElementById("region").addEventListener("change", (e) => {
+    region = e.target.value;
+    renderTable();
+  });
+  document.getElementById("threshold").addEventListener("change", (e) => {
+    minimum = +e.target.value;
+    renderTable();
+  });
+  document.getElementById("exportButton").addEventListener("click", csvExport);
+  document.getElementById("resetWeights").addEventListener("click", () => {
+    weights = Object.fromEntries(Object.entries(SIGNALS).map(([k, v]) => [k, v.weight]));
+    renderWeights();
+    renderTable();
+    renderInspector();
+    renderDetail();
+  });
+  renderMetrics();
+  renderWeights();
+  renderTable();
+  renderInspector();
+  renderDetail();
+  renderSources();
 }
